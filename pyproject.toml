@@ -4,8 +4,4 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["cadquery>=2.5.2", "cq-editor>=0.5.0", "simplellmfunc==0.2.5"]
-
-[[tool.uv.index]]
-url = "https://mirrors.zju.edu.cn/pypi/web/simple"
-default = true
+dependencies = ["cadquery>=2.5.2", "cq-editor>=0.5.0", "simplellmfunc==0.2.7"]
