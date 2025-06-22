@@ -1,11 +1,11 @@
 # CAD Agent
 
-A professional AI-powered CAD modeling assistant that helps users create 3D models using CADQuery and PythonOCC frameworks. The agent can understand natural language descriptions of 3D objects and generate executable CAD code.
+A professional AI-powered CAD modeling assistant that helps users create 3D models using CADQuery. The agent can understand natural language descriptions of 3D objects and generate executable CAD code.
 
 ## 🚀 Features
 
 - **Natural Language CAD Modeling**: Describe your 3D model in plain English, and the agent will generate precise CAD code
-- **Multi-Framework Support**: Supports both CADQuery and PythonOCC for different modeling needs
+- **Multi-Framework Support**: Supports both CADQuery for different modeling needs
 - **Interactive Development**: Real-time code generation, execution, and debugging
 - **Intelligent Query Expansion**: Automatically expands vague requirements into detailed modeling specifications
 - **File Management**: Built-in file operations for saving and managing generated models
@@ -97,7 +97,7 @@ cd CAD-Agent
 2. Install dependencies:
 
 ```bash
-pip install -r requirements.txt  # Create this file based on prerequisites
+uv sync
 ```
 
 3. Configure your LLM providers (see Configuration section above)
@@ -107,7 +107,8 @@ pip install -r requirements.txt  # Create this file based on prerequisites
 Start the interactive CAD agent:
 
 ```bash
-python main.py
+mkdir sandbox && cd sandbox
+export LOG_LEVEL=WARNING && rlwrap python ../main.py
 ```
 
 ### Basic Usage Examples
@@ -134,7 +135,7 @@ python main.py
 
 1. **Query Input**: Describe your CAD model in natural language
 2. **Requirement Expansion**: The agent will ask clarifying questions and expand your requirements
-3. **Code Generation**: Generates CAD code using CADQuery or PythonOCC
+3. **Code Generation**: Generates CAD code using CADQuery
 4. **Execution & Export**: Runs the code and exports to STEP format
 5. **Error Handling**: Automatically fixes any issues that arise
 
