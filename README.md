@@ -274,41 +274,6 @@ Generated models are saved in organized directories:
 │   └── generation_log.txt
 ```
 
-## 🔧 Troubleshooting
-
-### Common Issues
-
-1. **Import Errors**:
-
-   ```bash
-   # Install missing CAD libraries
-   conda install -c conda-forge cadquery
-   pip install pythonocc-core
-   ```
-
-2. **API Key Issues**:
-   - Verify your `config/providers.json` file
-   - Check API key permissions and quotas
-   - Test with a simple model first
-
-3. **CAD Code Execution Errors**:
-   - The agent will automatically attempt to fix code issues
-   - Check the generated Python files for syntax errors
-   - Verify CAD library installations
-
-4. **Memory Issues**:
-   - The agent automatically manages conversation history
-   - For long sessions, restart if needed
-   - Monitor token usage with your LLM provider
-
-### Debug Mode
-
-Enable verbose output by modifying the console settings in `main.py`:
-
-```python
-console = Console(stderr=True)  # Enable debug output
-```
-
 ## 🤝 Contributing
 
 1. Fork the repository
@@ -325,7 +290,7 @@ console = Console(stderr=True)  # Enable debug output
 
 ## 📝 License
 
-[Add your license information here]
+GPL2.0
 
 ## 🆘 Support
 
