@@ -1,0 +1,52 @@
+{
+  "volc_engine": [
+    {
+      "model_name": "deepseek-v3-250324",
+      "api_keys": [
+        "your_keys"
+      ],
+      "base_url": "https://ark.cn-beijing.volces.com/api/v3/",
+      "max_retries": 3,
+      "retry_delay": 1
+    },
+    {
+      "model_name": "doubao-1-5-pro-32k-250115",
+      "api_keys": [
+        "your_keys"
+      ],
+      "base_url": "https://ark.cn-beijing.volces.com/api/v3/",
+      "max_retries": 3,
+      "retry_delay": 1
+    }
+  ],
+  "chatanywhere": [
+    {
+      "model_name": "claude-sonnet-4-20250514",
+      "api_keys": [
+        "your_keys"
+      ],
+      "base_url": "https://api.chatanywhere.tech"
+    },
+    {
+      "model_name": "deepseek-v3",
+      "api_keys": [
+        "your_keys"
+      ],
+      "base_url": "https://api.chatanywhere.tech"
+    },
+    {
+      "model_name": "gemini-1.5-flash-latest",
+      "api_keys": [
+        "your_keys"
+      ],
+      "base_url": "https://api.chatanywhere.tech"
+    },
+    {
+      "model_name": "gpt-4o",
+      "api_keys": [
+        "your_keys"
+      ],
+      "base_url": "https://api.chatanywhere.tech"
+    }
+  ]
+}
