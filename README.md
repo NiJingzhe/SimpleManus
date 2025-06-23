@@ -50,6 +50,7 @@ To install all dependencies, run:
 
 ```bash
 uv sync
+uv pip install SimpleLLMFunc==0.2.7 -i https://pypi.org/
 ```
 
 ## ⚙️ Configuration
@@ -109,6 +110,7 @@ Start the interactive CAD agent:
 ```bash
 mkdir sandbox && cd sandbox
 export LOG_LEVEL=WARNING && rlwrap python ../main.py
+press Ctrl+D submit your request
 ```
 
 ### Basic Usage Examples
