@@ -7,7 +7,10 @@ from typing import (
     Generator,
     Tuple,
     Sequence,
+    AsyncGenerator,
 )
+from context.context import ensure_global_context
+from context.sketch_pad import get_global_sketch_pad
 
 
 class BaseAgent:
@@ -18,6 +21,9 @@ class BaseAgent:
         description: str,
         toolkit: Optional[Sequence[Tool | Callable]] = None,
         llm_interface: Optional[OpenAICompatible] = None,
+        max_history_length: int = 5,
+        save_context: bool = True,
+        context_file: Optional[str] = None,
     ):
         self.name = name
         self.description = description
@@ -27,6 +33,17 @@ class BaseAgent:
         if not self.llm_interface:
             raise ValueError("llm_interface must be provided")
 
+        # 使用全局单例的上下文管理器
+        self.context = ensure_global_context(
+            llm_interface=self.llm_interface,
+            max_history_length=max_history_length,
+            save_to_file=save_context,
+            context_file=context_file,
+        )
+
+        # 使用全局 SketchPad
+        self.sketch_pad = get_global_sketch_pad()
+
         self.chat = llm_chat(
             llm_interface=self.llm_interface,
             toolkit=self.toolkit,  # type: ignore[call-arg]
@@ -35,99 +52,165 @@ class BaseAgent:
             timeout=600,
         )(self.chat_impl)
 
-        self.summarize_history = llm_function(
-            llm_interface=self.llm_interface,
-            toolkit=[],  # type: ignore[call-arg]
-            timeout=600,
-        )(self.summarize_history_impl)
-
-        self.history: List[Dict[str, str]] = []
+        # 移除原来的历史总结功能，现在由ConversationContext处理
+        # self.history: List[Dict[str, str]] = []
 
     @staticmethod
     def chat_impl(
-        history: List[Dict[str, str]], query: str
+        history: List[Dict[str, str]], query: str, time: str, sketch_pad_summary: str
     ) -> Generator[Tuple[str, List[Dict[str, str]]], None, None]:  # type: ignore[override]
         """
-        # You are a professional AI assistant capable of answering various questions.
+        # 🎯 身份说明
+        你是专业的CAD建模智能助手，精通CADQuery/Python脚本建模、几何设计、工程制图。
+        使用中文与用户交流，提供从概念设计到代码实现的全流程建模支持。
+        
+        # 🚦 策略说明
+        根据用户意图选择合适策略：
+        
+        **通用对话**：技术咨询、设计理念讨论等非建模任务，提供专业建议和引导。
+        
+        **设计分析**：具体设计的技术细节、参数计算、方案评估等，进行三阶段分析（专业建议→操作引导→拓展建议）。
+        
+        **CAD建模**：明确的建模需求，严格执行七步法流程：
+        1. 需求详细化（使用工具细化模糊需求）
+        2. 用户确认循环（反复确认直到获得肯定回答）
+        3. 细节补全验证（确保建模流程完整）
+        4. 完整性最终检查（四要素验证）
+        5. 代码生成（高质量CadQuery代码）
+        6. **规范化保存与执行**（创建语义文件夹结构+文件操作+命令执行）
+        7. 调试优化循环（直到成功导出STL文件,以及step文件）
+        
+        **🗂️ 文件组织规范**：
+        - 每个模型创建独立的语义化文件夹：./零件名称_规格/
+        - 文件夹命名示例：./DN100_PN16_法兰/、./齿轮_18齿_模数2/、./轴承座_6208/
+        - 脚本文件：./零件名称_规格/model.py
+        - 输出文件：./零件名称_规格/零件名称.step、./零件名称_规格/零件名称.stl
+        - 确保所有相关文件都在同一个零件文件夹内，便于管理和查找
+        
+        质量标准：持续执行直到模型正确构建、无运行错误、结构尺寸意图与用户要求完全一致。
+        
+        # 🔧 工具说明
+        
+        ## 📒 SketchPad 智能存储系统 (重要！)
+        
+        SketchPad是你的智能工作台，用于存储、管理和检索对话中的各类数据，是提高工作效率的核心工具：
+        
+        **核心价值**：
+        - 自动存储工具结果，避免重复生成
+        - 智能摘要与标签管理，便于查找
+        - 工具间数据传递，提升协作效率
+        - LRU缓存机制，自动管理存储空间
+        
+        **前缀策略（工具自动遵循）**：
+        - req_xxxxxxxx：需求细化结果
+        - code_xxxxxxxx：生成的CAD代码  
+        - exec_xxxxxxxx：命令执行记录
+        - output_xxxxxxxx：命令输出结果
+        - error_xxxxxxxx：错误记录
+        - file_xxxxxxxx：文件读取内容
+        
+        **使用建议**：
+        - 主动使用search/search_tags查找历史内容，避免重复生成
+        - 关键阶段使用stats查看存储状况
+        - 通过key引用传递数据："key:req_abc12345"
+        - 合理使用标签分类：modeling, code, debug, requirements等
+        
+        ## 🛠️ 核心工具
+        
+        **make_user_query_more_detailed**：将模糊需求转化为详细建模规范，自动存储为req_xxxxxxxx。
+        
+        **cad_query_code_generator**：生成高质量CadQuery代码，支持直接需求或SketchPad key引用（"key:xxx"），自动存储为code_xxxxxxxx。
+        
+        **file_operations**：文件读写操作，支持read/overwrite/append/insert/modify，content可使用SketchPad key（"key:xxx"），读取自动存储为file_xxxxxxxx。**遵循语义化路径规范**。
+        
+        **execute_command**：执行系统命令，自动记录结果到SketchPad（exec_xxxxxxxx/output_xxxxxxxx/error_xxxxxxxx）。**用于执行保存在语义化文件夹中的脚本**。
+        
+        **sketch_pad_operations**：SketchPad管理工具，支持store/retrieve/search/search_tags/list/delete/stats/clear操作。
+        
+        **render_multi_view_model**：🎨 多视角模型渲染工具，生成3D模型的6个视角合成图（包含实体和线框），支持正视图和斜视图。**在结果验证阶段必须使用**，用于可视化确认模型的几何形状、结构尺寸和设计意图是否正确。输出语义化路径的PNG图像文件。
+        
+        ## 🔄 智能工作流
+        
+        **标准建模流程**：
+        1. 需求细化 → 自动存储req_key → 用户确认
+        2. 代码生成 → 引用"key:req_key" → 自动存储code_key  
+        3. **规范化文件组织** → 创建"./零件名称_规格/"文件夹 → 保存"model.py"脚本
+        4. 执行验证 → 在零件文件夹中运行脚本 → 生成STEP以及STL文件 → 自动存储结果
+        5. **🎨 视觉验证（必需）** → 使用render_multi_view_model渲染多视角图 → 确认几何形状和尺寸正确性
+        6. 调试修复 → 搜索error_前缀 → 精确修改文件夹内脚本 → 循环验证
+        
+        **🎨 结果验证要求**：
+        - **使用command execute**工具：ls 等命令查找到导出的结果路径
+        - **每个成功建模的零件都必须生成多视角渲染图**
+        - 渲染路径使用语义化命名：./零件名称_规格/multi_view_render.png
+        - 通过6个视角（正视图+斜视图）全面检查模型的几何正确性
+        - 确认尺寸比例、特征细节、结构完整性都符合设计要求
+        - 如发现问题，立即修正代码并重新渲染验证
+        
+        **文件组织实施**：
+        - 根据零件特征确定文件夹名：零件类型_关键参数
+        - 使用file_operations创建：./零件文件夹/model.py
+        - 使用execute_command执行：cd 零件文件夹 && python model.py
+        - 确保输出文件与脚本在同一文件夹内
+        
+        **数据管理策略**：
+        - 开始复杂任务前，先search相关历史
+        - 定期使用stats监控存储状况
+        - 关键节点存储中间结果，便于回溯
+        - 通过标签体系组织数据：requirements, modeling, code, debug等
+        
+        使用规范：英文双引号、转义内部引号和换行符、无尾随逗号、使用前说明目的。
 
-        ## 但是你更擅长于处理CAD任务，例如解答建模问题或者使用CAD Query框架和python脚本建模。
-
-        ## 以下是你的执行策略说明书：
-
-        ### 情况1: 用户想要和你聊天
-
-        - 在这种情况下，你可以非常自由的回答用户的任何问题，也可以带有主管色彩的针对用户的观点发表看法和评论
-          当然也可以和用户就某些话题进行深入的讨论。如果用户提出了带有种族歧视、政治歧视、性别歧视等不当言论，那么可以拒绝回答用户的问题。
-
-        ### 情况2: 用户提出了关于某个模型的问题，例如为什么要这样设计xxxx之类
-
-        - 在这种情况下，你需要非常专业的回答用户的问题，给出专业的意见和建议。
-          当然你也可以询问用户更多的信息来帮助你更好的回答用户的问题。
-          在你认为信息不足的时候，请及时将操作权限交给用户，并询问用户你想要知道的信息，可以在提问的同时给用户一些必要的回答引导。
-
-        - 在你认为信息充足的时候，请
-          1. 给出专业的意见和建议
-          2. 给出一些必要的操作引导
-          3. 如果你认为用户需要更多的信息来帮助他更好的理解问题，请给出必要的提示。
-
-        ### 情况3: 用户想要你帮助他建模
-
-        - 在这种情况下，请务必首先和用户明确的探讨得到一个足够明确的建模需求，详细到一些具体的几何参数和布局。
-
-        - 在你认为信息充足的时候，请使用相应的工具进一步细化用户的需求，然后询问用户这是否符合他的本意，直到得到肯定回答。
-
-          - 你可能会用到的工具是`make_user_query_more_detail`你需传递给这个工具的参数是用户的要求，返回的是扩展后的要求。
-            在传递参数的时候，请务必连带详细的扩展方向一并说明。
-
-            例如：
-            <这里是用户需求>， 我希望你最大程度保留需求原貌，但是能够在具体的设计参数和详细的建模过程上进行详细的扩展。
-
-        - 当得到工具的返回后，请务必将扩展的要求呈现给用户，并
-          1. 询问用户是否符合他的本意
-          2. 如果不符合，请根据用户的返回，继续使用`make_user_query_more_detail`工具进行扩展，并给出合适的扩展提示，直到得到用户的肯定回答。
-
-        - 当用户肯定了建模意图之后，检查建模意图是否有欠缺，例如有明确的参数了，但是缺少详细的建模过程等等。
-          你可以继续借助`make_user_query_more_detail`工具进行扩展，直到你认为这个扩展后的需求包含了详细的意图，详细的建模对象说明，详细的参数，
-          以及和此后需要生成代码相比足够结构化和细致的建模过程说明，建议细化到具体的结构化建模步骤说明，例如创建什么Loops，创建什么Face，如何拉升
-          如何倒角如何revolve，以及如何布尔运算等等。同时给出详细的几何尺寸和操作参数。
-
-        - 向用户展示最终的扩展结果，然后告诉用户你将会开始撰写代码。
-
-          - 你可以使用`cad_query_code_generation`来生成高质量的cad query代码，你需要传递给工具的参数是上一步
-            详细扩展后的需求，返回的是生成的代码。必须将扩展后的详细需求和用户一开始提出的需求原样传递给代码生成工具。
-
-        - 生成代码后，尝试使用文件操作相关工具保存到本地，然后使用执行指令的工具来执行脚本。
-
-          - 关于文件保存的位置，建议将代码和结果都保存在当前文件夹下的一个命名文件夹中。例如：
-            `./DN100_PN16_welding_flange/`下，这个文件夹大概率需要你自己创建。
-
-        - 执行代码过程中可能会出现错误，你需要阅读返回的错误消息，直到你确定模型已经被正确导出为止。
-
-          - 修正代码也可以用code generation工具生成，但是你要在参数里给出明确的原始上下文,错误信息和改进目标。
-          - 尽可能要求code generation生成修正的代码片段而不是整个代码。
-          - 尽量使用modify+diff信息的方式，给file operator提供行号来进行bug fix。在此之前可以通过某些终端指令得到文件的总共有几行，通过read和错误信息来确定哪里需要更改。
-
-        - 然后持续以上循环，即执行代码，检查错误，总结原因，生成修复，直到模型被正确导出,不要因为任何原因终止循环。
-
-        ### 用户要求修复代码：
-
-        - 和之前一样，不断循环，不要因为任何原因终止循环，直到模型被正确导出。
-
-        ## 关于Tool Use的说明：
-
-        - 使用英文双引号 "
-
-        - 转义内部双引号（如 "\"hello\""）
-
-        - 转义换行符（\n），不要直接插入换行
-
-        - 避免尾随逗号（如 "key": "value",）
-
-        - 如果某个工具调用因为格式出错，请注意格式重新生成调用
-
+        # 💡 注意：请确保在每次建模任务开始前，先清理SketchPad，防止干扰发生。
+        # 注意： 在用户肯定了意图之后，请确保持续执行自动操作，直到模型正确构建、无运行错误、结构尺寸意图与用户要求完全一致。
         """
 
-    def run(self, query: str) -> Generator[str, None, None]:
+    def _get_sketch_pad_summary(self) -> str:
+        """获取SketchPad的摘要信息，包括所有keys和截断的values"""
+        try:
+            # 获取所有项目的详细信息
+            all_items = self.sketch_pad.list_all(include_details=True)
+            
+            if not all_items:
+                return "SketchPad为空：无存储内容"
+            
+            summary_lines = [f"SketchPad当前状态 (共{len(all_items)}个项目):"]
+            
+            for item in all_items[:20]:  # 限制显示前20个项目
+                key = item['key']
+                tags = ', '.join(item['tags']) if item['tags'] else '无标签'
+                timestamp = item['timestamp']
+                content_type = item['content_type']
+                
+                # 获取完整内容并截断
+                full_item = self.sketch_pad.get_item(key)
+                if full_item:
+                    value_str = str(full_item.value)
+                    # 截断内容到合理长度
+                    if len(value_str) > 100:
+                        value_preview = value_str[:100] + "..."
+                    else:
+                        value_preview = value_str
+                    
+                    # 处理换行符
+                    value_preview = value_preview.replace('\n', '\\n')
+                    
+                    summary_lines.append(
+                        f"  • {key}: [{content_type}] {value_preview} "
+                        f"(标签: {tags}, 时间: {timestamp[:19]})"
+                    )
+                else:
+                    summary_lines.append(f"  • {key}: [已删除或无法访问]")
+            
+            if len(all_items) > 20:
+                summary_lines.append(f"  ... 还有 {len(all_items) - 20} 个项目未显示")
+            
+            return '\n'.join(summary_lines)
+            
+        except Exception as e:
+            return f"获取SketchPad摘要时出错: {str(e)}"
+
+    async def run(self, query: str) -> AsyncGenerator[str, None]:
         """Run the agent with the given query.
 
         Args:
@@ -139,55 +222,98 @@ class BaseAgent:
         if not query:
             raise ValueError("Query must not be empty")
 
-        response = self.chat(self.history, query)
+        # 获得时间字符串
+        import time
+        current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        
+        # 获得SketchPad的key和截断的value内容
+        sketch_pad_summary = self._get_sketch_pad_summary()
 
-        # Process response and update history only once at the end
-        final_history = self.history
-        chunk_count = 0
+        # 获取格式化的历史记录用于LLM调用
+        history = self.context.get_formatted_history()
+      
 
-        for response_str, history in response:
-            chunk_count += 1
-            final_history = history  # Keep track of the latest history
+        response = self.chat(history, query, current_time, sketch_pad_summary)
+
+        # 处理响应流并获取最终的历史记录
+        final_history = history
+
+        for response_str, updated_history in response:
+            final_history = updated_history
             yield response_str
 
-        # Update history only once after all chunks are processed
-        self.history = final_history
+        # 同步chat函数更新后的历史记录到context
+        await self.context.sync_with_external_history(final_history)
 
-        self.memory_manage()
+    # 上下文管理的便捷方法
+    def get_conversation_history(self, limit: Optional[int] = None):
+        """获取当前会话的对话历史"""
+        return self.context.get_history(limit)
+    
+    def get_full_saved_history(self, limit: Optional[int] = None):
+        """获取完整保存的对话历史"""
+        return self.context.get_full_saved_history(limit)
 
-    def memory_manage(self) -> None:
-        """Manage memory usage and clear history if needed."""
+    def search_conversation(self, query: str, limit: int = 5):
+        """搜索当前会话的对话历史"""
+        return self.context.search_history(query, limit)
+    
+    def search_full_history(self, query: str, limit: int = 5):
+        """搜索完整保存的对话历史"""
+        return self.context.search_full_history(query, limit)
 
-        # 默认策略是历史记录超过5条的时候自动总结
-        if len(self.history) > 5:
-            summary = self.summarize_history(self.history)
+    def clear_conversation(self, keep_summary: bool = True):
+        """清空当前会话的对话历史"""
+        self.context.clear_history(keep_summary)
 
-            self.history = [
-                {
-                    "role": "assistant",
-                    "content": (
-                        f"During the conversation happened just a moment ago, {summary}.\n"
-                        "Now you are suppose to continue to assist the user to achieve their target.\n"
-                    ),
-                }
-            ]
+    def get_conversation_summary(self):
+        """获取当前会话的对话摘要"""
+        return self.context.get_context_summary()
+    
+    def get_full_saved_summary(self):
+        """获取完整保存的对话摘要"""
+        return self.context.get_full_saved_summary()
 
-    def summarize_history_impl(self, history: List[Dict[str, str]]) -> str:  # type: ignore[override]
-        """Summarize the conversation history.
-        Focus on what the user want to achieve, and what the agent has done to help the user achieve it.
+    def export_conversation(self, file_path: str):
+        """导出当前会话的对话记录"""
+        self.context.export_context(file_path)
 
-        Args:
-            history (List[Dict[str, str]]): The conversation history.
+    def import_conversation(self, file_path: str, merge: bool = False):
+        """导入对话记录"""
+        self.context.import_context(file_path, merge)
 
-        Returns:
-            str: The summarized conversation
+    # SketchPad 管理的便捷方法
+    async def store_in_sketch_pad(
+        self,
+        value,
+        key: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        ttl: Optional[int] = None,
+    ):
+        """存储数据到 SketchPad"""
+        return await self.sketch_pad.store(value, key, ttl=ttl, tags=tags)
 
-        Example:
-        input: [
-            {"role": "user", "content": "What is the design specification for part X?"},
-            {"role": "assistant", "content": "The design specification for part X is..."},
-            {"role": "user", "content": "Can you help me model part Y?"},
-            {"role": "assistant", "content": "Sure, I can help you with that."}
-        ]
-        output: "User asked about design specification for part X and requested help with modeling part Y. Agent provided the design specification and agreed to help with modeling."
-        """
+    def get_from_sketch_pad(self, key: str):
+        """从 SketchPad 获取数据"""
+        return self.sketch_pad.retrieve(key)
+
+    def search_sketch_pad(self, query: str, limit: int = 5):
+        """搜索 SketchPad 内容"""
+        return self.sketch_pad.search(query, limit)
+
+    def get_sketch_pad_stats(self):
+        """获取 SketchPad 统计信息"""
+        return self.sketch_pad.get_statistics()
+
+    def clear_sketch_pad(self):
+        """清空 SketchPad"""
+        self.sketch_pad.clear_all()
+
+    def get_session_info(self):
+        """获取会话信息（包括对话历史和 SketchPad 统计）"""
+        return {
+            "agent_name": self.name,
+            "conversation_count": len(self.get_conversation_history()),
+            "sketch_pad_stats": self.get_sketch_pad_stats(),
+            "conversation_summary": self.get_conversation_summary(),
+        }
