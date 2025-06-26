@@ -50,7 +50,7 @@ To install all dependencies, run:
 
 ```bash
 uv sync
-uv pip install SimpleLLMFunc==0.2.7 -i https://pypi.org/
+uv pip install SimpleLLMFunc==0.2.8 -i https://pypi.org/
 ```
 
 ## ⚙️ Configuration
