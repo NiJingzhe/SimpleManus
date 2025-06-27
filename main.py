@@ -11,10 +11,7 @@ from context.context import initialize_global_context
 from tools import (
     execute_command,
     file_operations,
-    make_user_query_more_detailed,
-    cad_query_code_generator,
-    sketch_pad_operations,
-    render_multi_view_model,
+    read_dht11_adafruit
 )
 
 console = Console()
@@ -33,12 +30,9 @@ def setup_agent():
         )
         
         toolkit = [
-            make_user_query_more_detailed,
+            read_dht11_adafruit,  # 添加DHT11传感器读取工具
             execute_command,
             file_operations,
-            cad_query_code_generator,
-            sketch_pad_operations,
-            render_multi_view_model,
         ]
         agent = BaseAgent(
             name="CAD Assistant",
