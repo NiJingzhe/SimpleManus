@@ -53,7 +53,7 @@ SimpleAgent 是一个通用的智能助手框架，具有高度的可扩展性�
 
 ### 环境要求
 
-- Python 3.12+
+- Python 3.10+
 - CADQuery 2.5.2+
 - 支持的操作系统: macOS, Linux, Windows
 
@@ -62,9 +62,6 @@ SimpleAgent 是一个通用的智能助手框架，具有高度的可扩展性�
 ```bash
 # 使用 uv 安装依赖（推荐）
 uv sync
-
-# 或使用 pip 安装
-pip install -r requirements.txt
 ```
 
 ### 配置设置
