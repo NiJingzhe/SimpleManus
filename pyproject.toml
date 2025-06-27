@@ -5,15 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "cadquery>=2.5.2",
-    "cq-editor>=0.5.0",
-    "pyopengl",
     "simplellmfunc==0.2.8",
-    "trimesh>=4.6.12",
-    "pyrender",
-    "numpy",
-    "cascadio>=0.0.16",
-    "pyqt5>=5.15.11",
     "fastapi>=0.115.14",
     "uvicorn>=0.34.3",
     "pydantic>=2.5.0",
