@@ -85,9 +85,24 @@ cp config/provider_template.json config/provider.json
 
 ### 启动应用
 
+#### 终端交互模式
 ```bash
 python main.py
 ```
+
+#### Web API 服务模式
+```bash
+# 基本启动
+python start_web_server.py
+
+# 自定义主机和端口
+python start_web_server.py --host 0.0.0.0 --port 8080
+
+# 开发模式（自动重载）
+python start_web_server.py --reload
+```
+
+访问 `http://localhost:8000/docs` 查看 API 文档。
 
 ## 🔄 框架定制化
 
@@ -225,27 +240,33 @@ module = 2
 
 ```
 SimpleAgent_General/
-├── main.py                 # 主程序入口
-├── pyproject.toml         # 项目配置
-├── uv.lock               # 依赖锁定文件
-├── agent/                # 智能体核心模块
-│   └── BaseAgent.py      # 基础智能体类
-├── config/               # 配置管理
-│   ├── config.py         # 配置加载器
-│   ├── provider.json     # API 配置文件
-│   └── provider_template.json  # 配置模板
-├── context/              # 上下文管理
-│   ├── context.py        # 对话上下文管理
-│   └── sketch_pad.py     # 智能存储系统
-├── tools/                # 工具集合
-│   ├── requirements_tools.py    # 需求细化工具
-│   ├── code_tools.py           # 代码生成工具
-│   ├── file_tools.py           # 文件操作工具
-│   ├── command_tools.py        # 命令执行工具
-│   ├── model_view_tools.py     # 3D 渲染工具
-│   └── sketch_tools.py         # SketchPad 工具
-└── sandbox/              # 工作沙盒
-    └── 最简单法兰/         # 示例项目
+├── main.py                    # 终端交互入口
+├── start_web_server.py        # Web服务器启动脚本
+├── test_api_client.py         # API客户端测试脚本
+├── pyproject.toml            # 项目配置
+├── uv.lock                   # 依赖锁定文件
+├── agent/                    # 智能体核心模块
+│   └── BaseAgent.py          # 基础智能体类
+├── config/                   # 配置管理
+│   ├── config.py             # 配置加载器
+│   ├── provider.json         # API 配置文件
+│   └── provider_template.json # 配置模板
+├── context/                  # 上下文管理
+│   ├── context.py            # 对话上下文管理
+│   └── sketch_pad.py         # 智能存储系统
+├── tools/                    # 工具集合
+│   ├── requirements_tools.py  # 需求细化工具
+│   ├── code_tools.py         # 代码生成工具
+│   ├── file_tools.py         # 文件操作工具
+│   ├── command_tools.py      # 命令执行工具
+│   ├── model_view_tools.py   # 3D 渲染工具
+│   └── sketch_tools.py       # SketchPad 工具
+├── web_interface/            # Web API 模块
+│   ├── __init__.py           # 模块初始化
+│   ├── server.py             # FastAPI 服务器
+│   └── models.py             # OpenAI 兼容数据模型
+└── sandbox/                  # 工作沙盒
+    └── 最简单法兰/            # 示例项目
         ├── model.py
         ├── simple_flange.step
         ├── simple_flange.stl
@@ -291,6 +312,9 @@ SimpleAgent_General/
 ### 框架核心依赖
 - **SimpleLLMFunc (0.2.8)**: LLM 接口和工具调用框架
 - **Rich**: 美化控制台输出和交互界面
+- **FastAPI (>=0.115.14)**: 现代化的Web API框架
+- **Uvicorn (>=0.34.3)**: ASGI服务器，用于运行FastAPI
+- **Pydantic (>=2.5.0)**: 数据验证和设置管理
 
 ### 当前CAD实现相关（可选）
 - **CADQuery (>=2.5.2)**: Python 参数化 CAD 建模库
@@ -370,4 +394,126 @@ SimpleAgent_General/
 ---
 
 **SimpleAgent** - 一次开发，多域复用的通用智能体框架！
+
+## 🌐 Web API 服务
+
+SimpleAgent 提供了完全符合 OpenAI API 规范的 Web 服务接口，让您可以通过 HTTP API 调用智能体服务。
+
+### 启动 Web 服务器
+
+```bash
+# 基本启动（默认 127.0.0.1:8000）
+python start_web_server.py
+
+# 指定主机和端口
+python start_web_server.py --host 0.0.0.0 --port 8080
+
+# 开发模式（文件修改后自动重载）
+python start_web_server.py --reload
+```
+
+### API 端点
+
+#### 基础端点
+- `GET /` - 服务器信息
+- `GET /health` - 健康检查
+- `GET /docs` - Swagger API 文档
+- `GET /redoc` - ReDoc API 文档
+
+#### OpenAI 兼容端点
+- `GET /v1/models` - 列出可用模型
+- `POST /v1/chat/completions` - 聊天完成（支持流式和非流式）
+
+### 使用示例
+
+#### cURL 调用
+```bash
+# 非流式请求
+curl -X POST "http://localhost:8000/v1/chat/completions" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "simple-agent-v1",
+    "messages": [
+      {"role": "user", "content": "设计一个DN100的法兰"}
+    ],
+    "stream": false
+  }'
+
+# 流式请求
+curl -X POST "http://localhost:8000/v1/chat/completions" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "simple-agent-v1", 
+    "messages": [
+      {"role": "user", "content": "解释CAD建模的基本步骤"}
+    ],
+    "stream": true
+  }'
+```
+
+#### Python 客户端
+```python
+import requests
+
+# 基础客户端
+def chat_with_agent(message: str):
+    response = requests.post(
+        "http://localhost:8000/v1/chat/completions",
+        json={
+            "model": "simple-agent-v1",
+            "messages": [{"role": "user", "content": message}],
+            "stream": False
+        }
+    )
+    return response.json()
+
+# 使用内置测试客户端
+python test_api_client.py          # 运行API测试
+python test_api_client.py chat     # 启动交互式聊天
+```
+
+#### OpenAI 客户端库
+```python
+from openai import OpenAI
+
+# 使用OpenAI官方客户端库
+client = OpenAI(
+    api_key="not-needed",  # SimpleAgent不需要API密钥
+    base_url="http://localhost:8000/v1"
+)
+
+response = client.chat.completions.create(
+    model="simple-agent-v1",
+    messages=[
+        {"role": "user", "content": "帮我设计一个齿轮"}
+    ]
+)
+
+print(response.choices[0].message.content)
+```
+
+### Web API 特性
+
+- **OpenAI 兼容**: 完全兼容 OpenAI Chat Completions API
+- **流式输出**: 支持 Server-Sent Events (SSE) 流式响应
+- **CORS 支持**: 允许跨域访问，便于前端集成
+- **自动文档**: 自动生成 Swagger 和 ReDoc 文档
+- **错误处理**: 标准化的错误响应格式
+- **健康检查**: 提供服务状态监控端点
+
+### 部署建议
+
+#### 开发环境
+```bash
+python start_web_server.py --reload --host 127.0.0.1
+```
+
+#### 生产环境
+```bash
+# 使用 uvicorn 直接启动
+uvicorn web_interface.server:app --host 0.0.0.0 --port 8000 --workers 4
+
+# 或使用 gunicorn (需要安装)
+gunicorn web_interface.server:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
+```
 
