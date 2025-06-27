@@ -21,10 +21,7 @@ from context.context import initialize_global_context
 from tools import (
     execute_command,
     file_operations,
-    make_user_query_more_detailed,
-    cad_query_code_generator,
-    sketch_pad_operations,
-    render_multi_view_model,
+    read_dht11_adafruit
 )
 
 from .models import (
@@ -71,6 +68,7 @@ async def lifespan(app: FastAPI):
         toolkit = [
             execute_command,
             file_operations,
+            read_dht11_adafruit
         ]
         
         # 创建智能体
