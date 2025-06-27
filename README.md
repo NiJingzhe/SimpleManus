@@ -1,317 +1,376 @@
-# CAD Agent
+# SimpleAgent
 
-A professional AI-powered CAD modeling assistant that helps users create 3D models using CADQuery. The agent can understand natural language descriptions of 3D objects and generate executable CAD code.
+一个极其简单的通用单智能体框架，类似于 OpenManus 但更易于开发和使用。基于 SimpleLLMFunc 构建。
 
-## 🚀 Features
+## 🎯 项目简介
 
-- **Natural Language CAD Modeling**: Describe your 3D model in plain English, and the agent will generate precise CAD code
-- **Multi-Framework Support**: Supports both CADQuery for different modeling needs
-- **Interactive Development**: Real-time code generation, execution, and debugging
-- **Intelligent Query Expansion**: Automatically expands vague requirements into detailed modeling specifications
-- **File Management**: Built-in file operations for saving and managing generated models
-- **Error Handling & Auto-Fix**: Automatically detects and fixes common CAD modeling errors
+SimpleAgent 是一个通用的智能助手框架，具有高度的可扩展性和定制化能力。框架集成了对话管理、工具调用、上下文保存和智能存储等核心功能。
 
-## 🏗️ Architecture
+**当前实现** 针对 CAD 建模进行了专门优化，提供从概念设计到代码实现的全流程建模支持。但通过简单地修改 Prompt 和 Tools，可以轻松适配到其他任何专业领域，如：
+- 代码开发助手
+- 数据分析专家  
+- 文档写作助手
+- 科研工具集成
+- 业务流程自动化
+- 等等...
 
-The project follows a modular architecture:
+## ✨ 主要特性
 
-```
-CAD-Agent/
-├── agent/
-│   └── BaseAgent.py          # Core agent logic with LLM integration
-├── config/
-│   ├── config.py            # Configuration management
-│   └── provider_template.json # LLM provider templates
-├── tools/
-│   └── tools.py             # CAD tools and utilities
-├── main.py                  # Entry point and CLI interface
-└── README.md               # This file
-```
+### 🏗️ 通用框架架构
+- **高度可扩展**: 通过修改 Prompt 和 Tools 快速适配不同领域
+- **模块化设计**: 核心组件与业务逻辑分离，便于定制化开发
+- **领域无关**: 框架本身不绑定特定业务，可应用于任何专业场景
+- **快速部署**: 简单配置即可构建专业级智能助手
 
-### Core Components
+### 🤖 智能对话系统
+- **多模型支持**: 集成 GPT-4o、Claude、Gemini、DeepSeek 等多种 LLM
+- **流式对话**: 实时响应，支持打字机效果的流式输出
+- **上下文保持**: 自动管理对话历史，支持长期记忆和摘要
+- **会话管理**: 支持历史查询、导出、清空等操作
 
-1. **BaseAgent**: The main AI agent that orchestrates the entire workflow
-2. **Tools**: Specialized functions for CAD code generation, file operations, and command execution
-3. **Config**: Manages LLM provider configurations and API keys
-4. **CLI Interface**: Rich terminal interface for user interaction
+### 🛠️ 专业工具集
+- **需求细化**: 将模糊需求转化为详细建模规范
+- **代码生成**: 生成高质量的 CADQuery Python 代码
+- **文件操作**: 智能文件读写，支持语义化路径管理
+- **命令执行**: 安全的系统命令执行环境
+- **3D 渲染**: 多视角模型渲染和可视化验证
 
-## 📋 Prerequisites
+### 📒 SketchPad 智能存储系统
+- **智能缓存**: LRU 缓存机制，自动管理存储空间
+- **标签管理**: 支持多标签分类和智能检索
+- **自动摘要**: AI 自动生成内容摘要，便于查找
+- **持久化**: 支持数据持久化存储和恢复
 
-### System Requirements
+### 🎨 CAD 建模专业化（当前实现示例）
+- **七步建模流程**: 标准化的 CAD 建模工作流
+- **语义化文件组织**: 自动创建结构化的项目文件夹
+- **多格式支持**: 支持 STEP、STL 等主流 CAD 格式
+- **可视化验证**: 自动生成多视角渲染图进行设计验证
 
-- Python 3.10 or higher
-- macOS/Linux (Darwin machine recommended)
-- Terminal with Unicode support
+> 💡 **扩展提示**: 通过替换专业 Prompt 和工具集，可快速改造为其他领域的专业助手
 
-### Required Python Packages
+## 🚀 快速开始
 
-This project uses [uv](https://github.com/astral-sh/uv) for fast and reliable dependency management.  
-To install all dependencies, run:
+### 环境要求
+
+- Python 3.12+
+- CADQuery 2.5.2+
+- 支持的操作系统: macOS, Linux, Windows
+
+### 安装依赖
 
 ```bash
+# 使用 uv 安装依赖（推荐）
 uv sync
-uv pip install SimpleLLMFunc==0.2.8 -i https://pypi.org/
+
+# 或使用 pip 安装
+pip install -r requirements.txt
 ```
 
-## ⚙️ Configuration
+### 配置设置
 
-1. Edit `config/providers.json` with your actual API keys:
+1. 复制配置模板：
+```bash
+cp config/provider_template.json config/provider.json
+```
 
+2. 编辑 `config/provider.json`，填入您的 API 密钥：
 ```json
 {
-  "volc_engine": [
-    {
-      "model_name": "deepseek-v3-250324",
-      "api_keys": ["your_actual_api_key_here"],
-      "base_url": "https://ark.cn-beijing.volces.com/api/v3/",
-      "max_retries": 3,
-      "retry_delay": 1
+  "chatanywhere": {
+    "gpt-4o": {
+      "api_key": "your-api-key-here",
+      "base_url": "https://api.chatanywhere.tech/v1"
     }
-  ],
-  "chatanywhere": [
-    {
-      "model_name": "claude-sonnet-4-20250514",
-      "api_keys": ["your_actual_api_key_here"],
-      "base_url": "https://api.chatanywhere.tech"
-    }
-  ]
+  }
 }
 ```
 
-2. The agent uses different LLM interfaces for different tasks:
-
-- **BASIC_INTERFACE**: General conversation and coordination
-- **CODE_INTERFACE**: CAD code generation (requires more capable model)
-- **QUICK_INTERFACE**: Query expansion and simple tasks
-
-## 🚀 Getting Started
-
-### Installation
-
-1. Clone the repository:
+### 启动应用
 
 ```bash
-git clone <repository-url>
-cd CAD-Agent
+python main.py
 ```
 
-2. Install dependencies:
+## 🔄 框架定制化
 
-```bash
-uv sync
-```
+### 快速适配其他领域
 
-3. Configure your LLM providers (see Configuration section above)
+SimpleAgent 的设计理念是"一次开发，多域复用"。要将框架适配到新的专业领域，只需要：
 
-### Running the Agent
-
-Start the interactive CAD agent:
-
-```bash
-mkdir sandbox && cd sandbox
-export LOG_LEVEL=WARNING && rlwrap python ../main.py
-press Ctrl+D submit your request
-```
-
-### Basic Usage Examples
-
-1. **Simple Object Creation**:
-
-   ```
-   >>> Create a cube with 50mm sides
-   ```
-
-2. **Complex Mechanical Parts**:
-
-   ```
-   >>> I need a DN100 PN16 welding flange according to ASME B16.5 standard
-   ```
-
-3. **Parametric Models**:
-
-   ```
-   >>> Design a gear with 18 teeth, module 2.0, and 20-degree pressure angle
-   ```
-
-### Workflow
-
-1. **Query Input**: Describe your CAD model in natural language
-2. **Requirement Expansion**: The agent will ask clarifying questions and expand your requirements
-3. **Code Generation**: Generates CAD code using CADQuery
-4. **Execution & Export**: Runs the code and exports to STEP format
-5. **Error Handling**: Automatically fixes any issues that arise
-
-## 🛠️ Development Guide
-
-### Project Structure Deep Dive
-
-#### `agent/BaseAgent.py`
-
-The core agent that:
-
-- Manages conversation history and memory
-- Coordinates tool usage
-- Handles streaming responses
-- Implements memory management strategies
-
-Key methods:
-
-- `run()`: Main execution method
-- `memory_manage()`: Handles conversation history summarization
-- `chat_impl()`: Core chat logic with detailed instructions
-
-#### `tools/tools.py`
-
-Contains specialized tools:
-
-- **`cad_query_code_generation`**: Generates CADQuery code
-- **`pythonocc_code_generation`**: Generates PythonOCC code  
-- **`make_user_query_more_detailed`**: Expands user requirements
-- **`execute_command`**: Runs system commands
-- **`interactive_terminal`**: Handles interactive processes
-- **`file_operations`**: File read/write operations
-
-#### `config/config.py`
-
-Manages:
-
-- LLM provider configurations
-- API key management
-- Model selection strategies
-
-### Adding New Tools
-
-To add a new CAD tool:
-
-1. Create a new function in `tools/tools.py`:
+#### 1. 修改 Agent Prompt
+编辑 `agent/BaseAgent.py` 中的 `chat_impl` 函数内的系统提示词：
 
 ```python
-@tool(
-    name="your_tool_name",
-    description="What your tool does"
-)
-def your_tool_function(param1: str, param2: int) -> str:
+def chat_impl(history, query, time, sketch_pad_summary):
     """
-    Your tool implementation
+    # 🎯 身份说明
+    你是专业的[领域名称]智能助手，精通[核心技能1]、[核心技能2]、[核心技能3]。
+    使用中文与用户交流，提供从[起始阶段]到[结束阶段]的全流程支持。
+    
+    # 🚦 策略说明  
+    根据用户意图选择合适策略：
+    [定义你的工作流程和策略]
     """
-    # Tool logic here
-    return result
 ```
 
-2. Add it to the toolkit in `main.py`:
+#### 2. 替换专业工具集
+在 `main.py` 中的 `setup_agent()` 函数中替换工具集：
 
 ```python
 toolkit = [
-    cad_query_code_generation,
-    pythonocc_code_generation,
-    make_user_query_more_detailed,
+    # 替换为你的专业工具
+    your_domain_tool_1,
+    your_domain_tool_2,
+    your_domain_tool_3,
+    # 保留通用工具
     execute_command,
-    interactive_terminal,
     file_operations,
-    your_tool_function,  # Add your new tool here
+    sketch_pad_operations,
 ]
 ```
 
-### Extending LLM Support
-
-To add a new LLM provider:
-
-1. Add provider configuration to `config/providers.json`
-2. Update `config/config.py` to handle the new provider
-3. Test with different model capabilities
-
-### Customizing Agent Behavior
-
-The agent's behavior is defined in the `chat_impl` method docstring in `BaseAgent.py`. You can modify:
-
-- Response patterns
-- Tool usage strategies  
-- Error handling approaches
-- Memory management policies
-
-## 🧪 Testing
-
-### Manual Testing
-
-```bash
-# Test basic functionality
-python main.py
-
-# Test code generation
->>> Create a simple cylinder with radius 10mm and height 20mm
-```
-
-### Automated Testing
-
-Create test cases for:
-
-- Code generation quality
-- Error handling
-- File operations
-- Tool integration
-
-Example test structure:
+#### 3. 开发专业工具
+参考 `tools/` 目录下的现有工具，创建你的专业工具模块：
 
 ```python
-def test_cadquery_generation():
-    agent = setup_agent()
-    result = agent.run("Create a simple cube")
-    assert "cadquery" in result.lower()
-    assert ".step" in result.lower()
+@tool(name="your_domain_tool", description="专业工具描述")
+def your_domain_tool(param1: str, param2: int) -> str:
+    """你的专业工具实现"""
+    pass
 ```
 
-## 📁 Output Management
+### 领域适配示例
 
-Generated models are saved in organized directories:
+#### 数据分析助手
+- **工具集**: pandas操作、可视化生成、统计分析、模型训练
+- **工作流**: 数据探索 → 清洗处理 → 分析建模 → 结果可视化
+
+#### 代码开发助手  
+- **工具集**: 代码生成、测试编写、文档生成、代码审查
+- **工作流**: 需求分析 → 架构设计 → 代码实现 → 测试验证
+
+#### 文档写作助手
+- **工具集**: 内容研究、结构规划、文档生成、格式美化
+- **工作流**: 主题确定 → 大纲设计 → 内容创作 → 审校发布
+
+## 💡 使用指南（以CAD助手为例）
+
+> 📢 **注意**: 以下是框架当前CAD建模实现的使用示例。通过修改Prompt和工具集，可以轻松适配其他专业领域。
+
+### 基本对话
+
+启动后，您可以直接与 CAD 助手对话：
 
 ```
-./project_outputs/
-├── DN100_PN16_welding_flange/
-│   ├── flange_model.py
-│   ├── flange_model.step
-│   └── generation_log.txt
-├── gear_18_teeth/
-│   ├── gear_model.py
-│   ├── gear_model.step
-│   └── generation_log.txt
+>>> 帮我设计一个 DN100 PN16 的法兰
 ```
 
-## 🤝 Contributing
+### 特殊命令
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature-name`
-3. Make your changes and test thoroughly
-4. Submit a pull request with detailed description
+系统支持多种特殊命令来管理会话和数据：
 
-### Code Style
+#### 会话管理
+- `/help` - 显示帮助信息
+- `/history` - 查看当前会话历史
+- `/full_history` - 查看完整保存历史
+- `/clear` - 清空当前会话历史
+- `/summary` - 显示当前会话摘要
+- `/export <filename>` - 导出会话记录
 
-- Follow PEP 8 for Python code
-- Use type hints where possible
-- Add docstrings for all functions
-- Test new features before submitting
+#### SketchPad 管理
+- `/pad` - 显示 SketchPad 内容
+- `/pad_stats` - 显示统计信息
+- `/pad_search <query>` - 搜索内容
+- `/pad_store <key> <value>` - 存储内容
+- `/pad_get <key>` - 获取内容
+- `/pad_clear` - 清空 SketchPad
 
-## 📝 License
+### CAD 建模工作流
 
-GPL2.0
+#### 1. 需求细化
+```
+>>> 设计一个齿轮，18 齿，模数为 2
+```
 
-## 🆘 Support
+助手会自动细化需求，确定关键参数如：
+- 齿数、模数、压力角
+- 材料要求、精度等级
+- 安装方式、配合要求
 
-For questions and support:
+#### 2. 代码生成
+基于细化的需求，自动生成 CADQuery 代码：
+```python
+import cadquery as cq
 
-1. Check the troubleshooting section
-2. Review existing issues in the repository
-3. Create a new issue with detailed error information
+# 齿轮参数
+teeth = 18
+module = 2
+# ... 更多参数和建模代码
+```
 
-## 🔮 Future Roadmap
+#### 3. 文件组织
+自动创建语义化文件夹结构：
+```
+./齿轮_18齿_模数2/
+├── model.py          # CADQuery 脚本
+├── 齿轮.step         # STEP 格式文件
+├── 齿轮.stl          # STL 格式文件
+└── multi_view_render.png  # 多视角渲染图
+```
 
-- [ ] Web interface for browser-based access
-- [ ] Integration with more CAD formats (IGES, STL)
-- [ ] Advanced parametric modeling capabilities
-- [ ] Integration with simulation tools
-- [ ] Multi-language support
-- [ ] CAD model optimization suggestions
-- [ ] Integration with manufacturing databases
+#### 4. 执行和验证
+- 自动执行 Python 脚本
+- 生成 STEP 和 STL 文件
+- 创建多视角渲染图进行可视化验证
+
+## 🏗️ 项目结构
+
+```
+SimpleAgent_General/
+├── main.py                 # 主程序入口
+├── pyproject.toml         # 项目配置
+├── uv.lock               # 依赖锁定文件
+├── agent/                # 智能体核心模块
+│   └── BaseAgent.py      # 基础智能体类
+├── config/               # 配置管理
+│   ├── config.py         # 配置加载器
+│   ├── provider.json     # API 配置文件
+│   └── provider_template.json  # 配置模板
+├── context/              # 上下文管理
+│   ├── context.py        # 对话上下文管理
+│   └── sketch_pad.py     # 智能存储系统
+├── tools/                # 工具集合
+│   ├── requirements_tools.py    # 需求细化工具
+│   ├── code_tools.py           # 代码生成工具
+│   ├── file_tools.py           # 文件操作工具
+│   ├── command_tools.py        # 命令执行工具
+│   ├── model_view_tools.py     # 3D 渲染工具
+│   └── sketch_tools.py         # SketchPad 工具
+└── sandbox/              # 工作沙盒
+    └── 最简单法兰/         # 示例项目
+        ├── model.py
+        ├── simple_flange.step
+        ├── simple_flange.stl
+        └── multi_view_render.png
+```
+
+## 🔧 核心模块详解
+
+### BaseAgent 类（框架核心）
+通用智能体的核心类，提供：
+- **LLM 接口管理**: 支持多种大语言模型的统一调用
+- **工具调用框架**: 动态工具注册和智能调用机制  
+- **对话流控制**: 流式输出和上下文管理
+- **SketchPad 集成**: 智能数据存储和检索
+- **错误处理**: 完善的异常捕获和恢复机制
+
+### ConversationContext 类（上下文管理）
+对话上下文管理器，提供：
+- **单例模式**: 全局统一的上下文管理
+- **历史记录**: 自动存储和检索对话历史
+- **智能摘要**: AI驱动的长期记忆和摘要
+- **会话元数据**: 丰富的会话统计和管理信息
+
+### SketchPad 系统（智能存储）
+通用智能存储系统，特点：
+- **LRU 缓存**: 基于访问频率的智能内存管理
+- **标签系统**: 支持多维度的内容分类和检索
+- **AI 摘要**: 自动生成内容摘要，便于快速定位
+- **持久化**: 数据持久化存储，支持会话恢复
+
+### 当前CAD工具集（可替换）
+1. **make_user_query_more_detailed**: 需求细化和标准化
+2. **cad_query_code_generator**: 高质量 CAD 代码生成  
+3. **file_operations**: 智能文件操作和管理
+4. **execute_command**: 安全的命令执行环境
+5. **render_multi_view_model**: 3D 模型多视角渲染
+6. **sketch_pad_operations**: SketchPad 数据管理
+
+> 🔧 **自定义提示**: 替换为你的专业领域工具，如数据分析、代码开发、文档写作等工具集
+
+## 📋 依赖项说明
+
+### 框架核心依赖
+- **SimpleLLMFunc (0.2.8)**: LLM 接口和工具调用框架
+- **Rich**: 美化控制台输出和交互界面
+
+### 当前CAD实现相关（可选）
+- **CADQuery (>=2.5.2)**: Python 参数化 CAD 建模库
+- **cq-editor (>=0.5.0)**: CADQuery 可视化编辑器
+- **cascadio (>=0.0.16)**: CAD 文件格式支持
+- **trimesh (>=4.6.12)**: 3D 网格处理
+- **pyrender**: 3D 渲染引擎
+- **PyOpenGL**: OpenGL Python 绑定
+- **numpy**: 数值计算支持
+- **PIL/Pillow**: 图像处理
+
+> 💡 **自定义提示**: 根据你的专业领域需求，替换或添加相应的专业库
+
+## 🎮 示例用法
+
+### 当前CAD建模实现示例
+
+#### 基础 CAD 建模
+```
+>>> 设计一个 M8 的六角螺栓，长度 20mm
+```
+
+#### 复杂零件设计
+```
+>>> 创建一个减速器齿轮，输入轴齿数 20，输出轴齿数 60，模数 3
+```
+
+#### 标准件设计
+```
+>>> 设计一个 DN150 PN25 的对焊法兰，符合 HG/T20592 标准
+```
+
+### 其他领域适配示例
+
+#### 数据分析助手
+```
+>>> 分析这个销售数据，找出季节性趋势和异常值
+>>> 构建一个预测模型来预估下季度销量
+```
+
+#### 代码开发助手
+```
+>>> 帮我设计一个用户认证系统的API架构
+>>> 为这个函数编写单元测试和文档
+```
+
+#### 文档写作助手
+```
+>>> 撰写一份关于AI在教育领域应用的研究报告
+>>> 将这个技术文档改写为用户友好的使用指南
+```
+
+> 🚀 **扩展潜力**: 通过简单的配置修改，SimpleAgent可以成为任何专业领域的智能助手
+
+## 🤝 贡献指南
+
+欢迎贡献代码和建议！请遵循以下步骤：
+
+1. Fork 项目仓库
+2. 创建功能分支 (`git checkout -b feature/amazing-feature`)
+3. 提交更改 (`git commit -m 'Add some amazing feature'`)
+4. 推送到分支 (`git push origin feature/amazing-feature`)
+5. 打开 Pull Request
+
+## 📄 许可证
+
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
+
+## 🆘 支持与反馈
+
+如果您遇到问题或有建议，请：
+1. 查看文档和示例
+2. 搜索已有的 Issues
+3. 创建新的 Issue 描述问题
+4. 联系项目维护者
 
 ---
 
-**Note**: This project is designed for educational and professional CAD modeling assistance. Always verify generated models meet your specific requirements and safety standards.
+**SimpleAgent** - 一次开发，多域复用的通用智能体框架！
+
