@@ -20,8 +20,6 @@ from .sketch_tools import (
     sketch_pad_operations,
 )
 
-# 智能传感器工具
-from .dht11_tools import read_dht11_adafruit
 
 
 # 为了保持向后兼容性，导出所有工具函数
@@ -32,5 +30,4 @@ __all__ = [
     'print_tool_output',
     'global_context',
     'get_global_sketch_pad',
-    'read_dht11_adafruit',
 ]
