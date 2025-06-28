@@ -1,3 +1,4 @@
+![repocover](./img/repocover.png)
 # SimpleAgent
 
 一个基于 SimpleLLMFunc 构建的通用智能体框架，专注于任务管理、记忆系统和工具集成。
