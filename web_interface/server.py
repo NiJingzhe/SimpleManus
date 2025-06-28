@@ -15,14 +15,8 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
+from agent import initialize_global_agent, get_global_agent
 from agent.BaseAgent import BaseAgent
-from config.config import get_config
-from context.context import initialize_global_context
-from tools import (
-    execute_command,
-    file_operations,
-    read_dht11_adafruit
-)
 
 from .models import (
     ChatCompletionRequest,
@@ -54,29 +48,12 @@ async def lifespan(app: FastAPI):
     # 启动时初始化智能体
     print("🚀 Initializing SimpleAgent Web Server...")
     try:
-        config = get_config()
-        
-        # 初始化全局context
-        initialize_global_context(
-            llm_interface=config.BASIC_INTERFACE,
-            max_history_length=20,
-            save_to_file=True,
-            context_file="context/conversation_history.json"
-        )
-        
-        # 创建工具集
-        toolkit = [
-            execute_command,
-            file_operations,
-            read_dht11_adafruit
-        ]
-        
-        # 创建智能体
-        agent = BaseAgent(
+        # 使用全局Agent单例
+        agent = initialize_global_agent(
             name="SimpleAgent Web Service",
             description="Professional CAD modeling assistant with web API",
-            toolkit=toolkit,
-            llm_interface=config.BASIC_INTERFACE,
+            context_file="history/conversation_history.json",
+            max_history_length=20
         )
         
         print("✅ SimpleAgent initialized successfully!")

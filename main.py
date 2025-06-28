@@ -5,40 +5,20 @@ from time import sleep
 from rich.console import Console
 from rich.panel import Panel
 
+from agent import initialize_global_agent, get_global_agent
 from agent.BaseAgent import BaseAgent
-from config.config import get_config
-from context.context import initialize_global_context
-from tools import (
-    execute_command,
-    file_operations,
-    read_dht11_adafruit
-)
 
 console = Console()
 
 
 def setup_agent():
     try:
-        config = get_config()
-        
-        # 首先初始化全局context
-        initialize_global_context(
-            llm_interface=config.BASIC_INTERFACE,
-            max_history_length=20,
-            save_to_file=True,
-            context_file="context/conversation_history.json"
-        )
-        
-        toolkit = [
-            read_dht11_adafruit,  # 添加DHT11传感器读取工具
-            execute_command,
-            file_operations,
-        ]
-        agent = BaseAgent(
+        # 使用全局Agent单例
+        agent = initialize_global_agent(
             name="CAD Assistant",
             description="Professional CAD modeling assistant",
-            toolkit=toolkit,
-            llm_interface=config.BASIC_INTERFACE,
+            context_file="history/conversation_history.json",
+            max_history_length=20
         )
         console.print("CAD Assistant initialized successfully!")
         return agent
