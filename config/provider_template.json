@@ -46,7 +46,9 @@
       "api_keys": [
         "your_keys"
       ],
-      "base_url": "https://api.chatanywhere.tech"
+      "base_url": "https://api.chatanywhere.tech",
+      "rate_limit_capacity": 10,
+      "rate_limit_refill_rate": 1.0
     }
   ]
 }
