@@ -406,18 +406,13 @@ class SketchPadItem:
 - **UUID**: 唯一标识符生成
 
 ### 支持的LLM模型
-当前配置支持以下模型提供商：
-- **OpenAI**: GPT-4o, GPT-4, GPT-3.5-turbo
-- **Anthropic**: Claude-3.5-sonnet, Claude-3-haiku
-- **Google**: Gemini-2.5-pro, Gemini-2.5-flash
-- **DeepSeek**: DeepSeek-v3
-- **其他**: 通过OpenAI兼容接口支持更多模型
+- **所有支持OpenAI API调用的模型接口**
+- 你可以在 `config/provider.json` 中配置不同的模型, API Key和流量控制参数，参考 `config/provider_template.json` 模板。
+
+> tips: 流量控制通过令牌桶算法实现，那你就明白配置中capacity和refill rate的含义了。
 
 ### 系统要求
-- **Python**: 3.12+ (使用最新的异步特性)
-- **内存**: 建议2GB以上（用于SketchPad缓存）
-- **存储**: 100MB+ （用于对话历史和缓存数据）
-- **网络**: 需要稳定的网络连接访问LLM API
+- **Python**: 3.11w (使用最新的异步特性)
 
 ## 🎮 示例用法
 
