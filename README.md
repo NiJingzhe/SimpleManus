@@ -652,7 +652,7 @@ gunicorn web_interface.server:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0
 
 ## 📄 许可证
 
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
+本项目采用 GPL2.0 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
 
 ## 🆘 支持与反馈
 
