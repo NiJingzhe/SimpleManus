@@ -1,21 +1,21 @@
-![repocover](https://github.com/NiJingzhe/SimpleAgent/blob/dev/img/repocover.png?raw=true)
-# SimpleAgent
+![repocover](https://github.com/NiJingzhe/SimpleManus/blob/dev/img/repocover.png?raw=true)
+# SimpleManus
 
-![Github Stars](https://img.shields.io/github/stars/NiJingzhe/SimpleAgent.svg?style=social)
-![Github Forks](https://img.shields.io/github/forks/NiJingzhe/SimpleAgent.svg?style=social)
+![Github Stars](https://img.shields.io/github/stars/NiJingzhe/SimpleManus.svg?style=social)
+![Github Forks](https://img.shields.io/github/forks/NiJingzhe/SimpleManus.svg?style=social)
 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
-[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/NiJingzhe/SimpleAgent/graphs/commit-activity)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/NiJingzhe/SimpleAgent/pulls)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/NiJingzhe/SimpleManus/graphs/commit-activity)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/NiJingzhe/SimpleManus/pulls)
 
 
 一个基于 SimpleLLMFunc 构建的通用智能体框架，专注于任务管理、记忆系统和工具集成。
 
 ## 🎯 项目简介
 
-SimpleAgent 是一个通用的智能体框架，设计理念是提供一个强大且灵活的基础平台，让开发者能够快速构建专业领域的智能助手。框架核心特色是其任务管理能力和智能记忆系统。
+SimpleManus 是一个通用的智能体框架，设计理念是提供一个强大且灵活的基础平台，让开发者能够快速构建专业领域的智能助手。框架核心特色是其任务管理能力和智能记忆系统。
 
 **框架优势**：
 - **任务智能分解**: 自动识别任务复杂度，采用分层处理策略（简单/中等/复杂任务模式）
@@ -123,7 +123,7 @@ python start_web_server.py --reload
 
 ### 智能任务处理模式
 
-SimpleAgent 具备智能任务识别和分层处理能力，自动根据任务复杂度选择最佳处理策略：
+SimpleManus 具备智能任务识别和分层处理能力，自动根据任务复杂度选择最佳处理策略：
 
 #### 🎯 简单任务模式
 - **特征**: 单步骤即可完成，不需要复杂规划
@@ -279,7 +279,7 @@ def your_domain_tool(param1: str, param2: int) -> str:
 ## 🏗️ 项目结构
 
 ```
-SimpleAgent_General/
+SimpleManus_General/
 ├── main.py                    # 终端交互入口
 ├── start_web_server.py        # Web服务器启动脚本
 ├── pyproject.toml            # 项目配置和依赖
@@ -477,7 +477,7 @@ class SketchPadItem:
 
 #### 手动数据管理
 ```
->>> /pad_store project_config {"name": "SimpleAgent", "version": "1.0"}
+>>> /pad_store project_config {"name": "SimpleManus", "version": "1.0"}
 >>> /pad_tag project_config config,json,metadata
 >>> /pad_search config
 ```
@@ -508,11 +508,11 @@ class SketchPadItem:
 
 ---
 
-**SimpleAgent** - 智能任务管理，灵活工具集成，无限扩展可能！
+**SimpleManus** - 智能任务管理，灵活工具集成，无限扩展可能！
 
 ## 🌐 Web API 服务
 
-SimpleAgent 提供了完全符合 OpenAI API 规范的 Web 服务接口，让您可以通过 HTTP API 调用智能体服务。
+SimpleManus 提供了完全符合 OpenAI API 规范的 Web 服务接口，让您可以通过 HTTP API 调用智能体服务。
 
 ### 启动 Web 服务器
 
@@ -593,7 +593,7 @@ from openai import OpenAI
 
 # 使用OpenAI官方客户端库
 client = OpenAI(
-    api_key="not-needed",  # SimpleAgent不需要API密钥
+    api_key="not-needed",  # SimpleManus不需要API密钥
     base_url="http://localhost:8000/v1"
 )
 
@@ -678,10 +678,10 @@ A: 修改 `config/config.py` 中的模型配置，选择不同的接口。
 
 ## Star History
 
-<a href="https://www.star-history.com/#NiJingzhe/SimpleAgent&Date">
+<a href="https://www.star-history.com/#NiJingzhe/SimpleManus&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=NiJingzhe/SimpleAgent&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=NiJingzhe/SimpleAgent&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=NiJingzhe/SimpleAgent&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=NiJingzhe/SimpleManus&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=NiJingzhe/SimpleManus&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=NiJingzhe/SimpleManus&type=Date" />
  </picture>
 </a>
