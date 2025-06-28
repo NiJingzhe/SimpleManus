@@ -1,5 +1,15 @@
-![repocover](./img/repocover.png)
+![repocover](https://github.com/NiJingzhe/SimpleAgent/blob/dev/img/repocover.png?raw=true)
 # SimpleAgent
+
+![Github Stars](https://img.shields.io/github/stars/NiJingzhe/SimpleAgent.svg?style=social)
+![Github Forks](https://img.shields.io/github/forks/NiJingzhe/SimpleAgent.svg?style=social)
+
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python Version](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/NiJingzhe/SimpleAgent/graphs/commit-activity)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/NiJingzhe/SimpleAgent/pulls)
+
 
 一个基于 SimpleLLMFunc 构建的通用智能体框架，专注于任务管理、记忆系统和工具集成。
 
@@ -51,7 +61,7 @@ SimpleAgent 是一个通用的智能体框架，设计理念是提供一个强�
 
 ### 环境要求
 
-- Python 3.12+
+- Python 3.11+
 - 支持的操作系统: macOS, Linux, Windows
 
 ### 安装依赖
@@ -671,3 +681,12 @@ A: SketchPad数据存储在内存中，支持持久化到文件系统。
 **Q: 如何配置不同的LLM模型？**
 A: 修改 `config/config.py` 中的模型配置，选择不同的接口。
 
+## Star History
+
+<a href="https://www.star-history.com/#NiJingzhe/SimpleAgent&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=NiJingzhe/SimpleAgent&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=NiJingzhe/SimpleAgent&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=NiJingzhe/SimpleAgent&type=Date" />
+ </picture>
+</a>
