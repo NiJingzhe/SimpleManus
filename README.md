@@ -512,7 +512,9 @@ class SketchPadItem:
 
 ## 🌐 Web API 服务
 
-SimpleManus 提供了完全符合 OpenAI API 规范的 Web 服务接口，让您可以通过 HTTP API 调用智能体服务。
+SimpleManus 提供了完全符合 OpenAI API 规范的 Web 服务接口，让您可以通过 HTTP API 和 WebSocket API 调用智能体服务。
+
+WebSocket API 详细说明： [docs/websocket_api.md](docs/websocket_api.md)
 
 ### 启动 Web 服务器
 
