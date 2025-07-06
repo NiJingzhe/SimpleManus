@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime
 from typing import Dict, Any, AsyncGenerator, Optional
 import uvicorn
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -354,6 +354,68 @@ async def chat_completions(request: ChatCompletionRequest):
             error_type="server_error",
             status_code=500
         )
+
+
+@app.websocket("/v1/chat/completions/ws")
+async def websocket_chat_completions(websocket: WebSocket):
+    """通过WebSocket提供流式聊天完成"""
+    await websocket.accept()
+    global agent
+
+    if not agent:
+        await websocket.close(code=1011, reason="Agent not initialized")
+        return
+
+    try:
+        while True:
+            # 接收JSON格式的请求数据
+            try:
+                data = await websocket.receive_json()
+                request = ChatCompletionRequest(**data)
+            except Exception as e:
+                error_detail = ErrorDetail(message=f"Invalid request format: {e}", type="invalid_request", param=None, code=None)
+                await websocket.send_json(ErrorResponse(error=error_detail).model_dump())
+                continue
+
+            request_id = f"chatcmpl-{uuid.uuid4().hex[:29]}"
+            chunk_sequence = 0
+
+            # 使用现有的流式生成器
+            try:
+                async for chunk_str in stream_chat_completion(request, request_id):
+                    if chunk_str.strip():
+                        # 解析SSE格式的数据
+                        if chunk_str.startswith("data: "):
+                            json_data_str = chunk_str[len("data: "):].strip()
+                            if json_data_str != "[DONE]":
+                                try:
+                                    json_data = json.loads(json_data_str)
+                                    # 封装数据包，加入序列号
+                                    response_packet = {
+                                        "sequence": chunk_sequence,
+                                        "payload": json_data
+                                    }
+                                    await websocket.send_json(response_packet)
+                                    chunk_sequence += 1
+                                except json.JSONDecodeError:
+                                    # 如果不是有效的JSON，则按原样发送（这种情况应较少见）
+                                    await websocket.send_text(json_data_str)
+                
+                # 发送一个最终消息表示流结束
+                await websocket.send_json({
+                    "sequence": chunk_sequence,
+                    "payload": {"id": request_id, "choices": [{"finish_reason": "stop"}]}
+                })
+
+            except Exception as e:
+                error_detail = ErrorDetail(message=f"Error during streaming: {str(e)}", type="server_error", param=None, code=None)
+                await websocket.send_json(ErrorResponse(error=error_detail).model_dump())
+
+    except WebSocketDisconnect:
+        print("Client disconnected from WebSocket.")
+    except Exception as e:
+        print(f"An unexpected error occurred in WebSocket: {e}")
+        await websocket.close(code=1011, reason=f"Internal Server Error: {e}")
 
 
 @app.exception_handler(404)
