@@ -1,0 +1,19 @@
+services:
+  # 仅启动 Redis（用于本地开发联调）
+  simplecad_redis_dev:
+    image: redis:7-alpine
+    container_name: simplecad_redis_dev
+    restart: unless-stopped
+    volumes:
+      - simplecad_redis_data:/data/simplecad_redis
+      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "9736", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  simplecad_redis_data:
+    driver: local

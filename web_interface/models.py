@@ -5,13 +5,33 @@ OpenAI API compatible data models
 
 from typing import List, Optional, Dict, Any, Union, Literal
 from pydantic import BaseModel, Field
-from datetime import datetime
+
+
+class ChatMessageContentText(BaseModel):
+    """文本内容模型"""
+    type: Literal["text"] = Field("text", description="内容类型")
+    text: str = Field(..., description="文本内容")
+
+
+class ChatMessageContentImageUrl(BaseModel):
+    """图片URL模型"""
+    url: str = Field(..., description="图片URL或base64数据")
+
+
+class ChatMessageContentImage(BaseModel):
+    """图片内容模型"""
+    type: Literal["image_url"] = Field("image_url", description="内容类型")
+    image_url: ChatMessageContentImageUrl = Field(..., description="图片URL")
+
+
+# 多模态内容类型
+ChatMessageContent = Union[str, List[Union[ChatMessageContentText, ChatMessageContentImage]]]
 
 
 class ChatMessage(BaseModel):
     """对话消息模型"""
     role: Literal["system", "user", "assistant", "tool"] = Field(..., description="消息角色")
-    content: Optional[str] = Field(None, description="消息内容")
+    content: Optional[ChatMessageContent] = Field(None, description="消息内容")
     name: Optional[str] = Field(None, description="发送者名称")
     tool_calls: Optional[List[Dict[str, Any]]] = Field(None, description="工具调用")
     tool_call_id: Optional[str] = Field(None, description="工具调用ID")

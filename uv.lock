@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.12"
 
 [[package]]
@@ -430,6 +430,15 @@ wheels = [
 ]
 
 [[package]]
+name = "redis"
+version = "6.4.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/0d/d6/e8b92798a5bd67d659d51a18170e91c16ac3b59738d91894651ee255ed49/redis-6.4.0.tar.gz", hash = "sha256:b01bc7282b8444e28ec36b261df5375183bb47a07eb9c603f284e89cbc5ef010", size = 4647399, upload-time = "2025-08-07T08:10:11.441Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e8/02/89e2ed7e85db6c93dfa9e8f691c5087df4e3551ab39081a4d7c6d1f90e05/redis-6.4.0-py3-none-any.whl", hash = "sha256:f0544fa9604264e9464cdf4814e7d4830f74b165d52f2a330a760a88dd248b7f", size = 279847, upload-time = "2025-08-07T08:10:09.84Z" },
+]
+
+[[package]]
 name = "rich"
 version = "14.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -452,31 +461,8 @@ wheels = [
 ]
 
 [[package]]
-name = "simpleagent"
-version = "0.1.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "fastapi" },
-    { name = "pydantic" },
-    { name = "simplellmfunc" },
-    { name = "uvicorn" },
-    { name = "websocket" },
-    { name = "websockets" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "fastapi", specifier = ">=0.115.14" },
-    { name = "pydantic", specifier = ">=2.5.0" },
-    { name = "simplellmfunc", specifier = "==0.2.8" },
-    { name = "uvicorn", specifier = ">=0.34.3" },
-    { name = "websocket", specifier = ">=0.2.1" },
-    { name = "websockets", specifier = ">=15.0.1" },
-]
-
-[[package]]
 name = "simplellmfunc"
-version = "0.2.8"
+version = "0.2.13"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx", extra = ["socks"] },
@@ -487,9 +473,36 @@ dependencies = [
     { name = "pyyaml" },
     { name = "rich" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0d/ed/736db87965a7997c4c5ab464ce074fe4d153ff9d87d8f54ec5f40d9a1395/simplellmfunc-0.2.8.tar.gz", hash = "sha256:a71382d998b11aa67b7619d351820950fb7f050fa16bb54a23012de16f37a8ca", size = 55342, upload-time = "2025-06-23T17:30:43.142Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/39/0b/f7ae8bfee0e2753987a2ee40fa9d6247e5e5ea4ccc7702a20ca13113f1bd/simplellmfunc-0.2.13.tar.gz", hash = "sha256:c22ddc9f7d985288c5815f798393268a842757c379c32ff6e41839da8472aa70", size = 59497, upload-time = "2025-08-08T09:36:15.634Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/cf/d3/3f1f6c4604527d97e52910e4c0c8f46a69a172991c43ecb3cbd12fb80b07/simplellmfunc-0.2.8-py3-none-any.whl", hash = "sha256:2853c6df22857ce2df25adc04ade1d4e4d0a7c94864bbc1a4adf8bb91e7a2e09", size = 59470, upload-time = "2025-06-23T17:30:41.772Z" },
+    { url = "https://files.pythonhosted.org/packages/83/e5/23799213ad587bbe3d5da20b4abce3230441c31f4c40aacaa3cb4a180f35/simplellmfunc-0.2.13-py3-none-any.whl", hash = "sha256:b70cc553cc6378e837f940214948e1d08873a5a5599a34316de39326cfe85ecc", size = 62905, upload-time = "2025-08-08T09:36:14.37Z" },
+]
+
+[[package]]
+name = "simplemanus"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "fastapi" },
+    { name = "pydantic" },
+    { name = "pydantic-core" },
+    { name = "redis" },
+    { name = "simplellmfunc" },
+    { name = "uvicorn" },
+    { name = "websocket" },
+    { name = "websockets" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.115.14" },
+    { name = "pydantic", specifier = ">=2.5.0" },
+    { name = "pydantic-core", specifier = ">=2.33.2" },
+    { name = "redis", specifier = ">=6.4.0" },
+    { name = "simplellmfunc", specifier = ">=0.2.13" },
+    { name = "uvicorn", specifier = ">=0.34.3" },
+    { name = "websocket", specifier = ">=0.2.1" },
+    { name = "websockets", specifier = ">=15.0.1" },
 ]
 
 [[package]]
