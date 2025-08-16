@@ -1,0 +1,72 @@
+services:
+  # Redis 服务
+  simplemanus_redis:
+    image: redis:7-alpine
+    container_name: simplemanus_redis
+    restart: unless-stopped
+    volumes:
+      - simplemanus_redis_data:/data/simplemanus_redis
+      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      - simplemanus_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "9736", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # API 服务
+  simplemanus_api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    platform: linux/amd64
+    container_name: simplemanus_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - REDIS_HOST=simplemanus_redis
+      - REDIS_PORT=9736
+      - REDIS_DB=0
+      - LOG_LEVEL=info
+      - WORKING_DIR=/app/workspace
+      - RAGFLOW_BASE_URL=${RAGFLOW_BASE_URL:-http://host.docker.internal}
+      - RAGFLOW_API_KEY=${RAGFLOW_API_KEY:-ragflow-yourkey}
+    volumes:
+      - app_data:/app/data
+      - app_logs:/app/logs
+      - app_workspace:/app/workspace
+      - ./provider.json:/app/config/provider.json
+    depends_on:
+      simplemanus_redis:
+        condition: service_healthy
+    command: ["python", "start_simplemanus_api.py", "--host", "0.0.0.0", "--port", "8000", "--working-dir", "/app/workspace/sandbox"]
+    networks:
+      - simplemanus_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    # 兼容 Linux: 使容器内可解析宿主机域名
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  simplemanus_redis_data:
+    driver: local
+  app_data:
+    driver: local
+  app_logs:
+    driver: local
+  app_workspace:
+    driver: local
+
+networks:
+  simplemanus_network:
+    driver: bridge

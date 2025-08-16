@@ -1,222 +1,190 @@
-from SimpleLLMFunc import llm_chat, OpenAICompatible, Tool
+"""
+BaseAgent 是所有 Agent 的基类，定义了 Agent 的基本接口和通用功能
+所有具体的 Agent 实现都应该继承此类并实现抽象方法
+
+BaseAgent 提供了以下功能：
+- 单例模式
+- 对话历史管理
+- SketchPad 管理
+- 工具集管理
+"""
 from typing import (
     Dict,
     List,
     Optional,
     Callable,
     Generator,
-    Tuple,
     Sequence,
+    Tuple,
     AsyncGenerator,
+    Any,
 )
-from context.context import ensure_global_context
-from context.sketch_pad import get_global_sketch_pad
+from abc import ABC, abstractmethod
+from SimpleLLMFunc import llm_chat, OpenAICompatible # type: ignore
+import threading
+from context.conversation_manager import get_current_context, get_current_sketch_pad
+from context.schemas import Message
+import json
+import os
+import uuid
 
 
-class BaseAgent:
+class BaseAgent(ABC):
+    """
+    Agent基类，定义了Agent的基本接口和通用功能
+
+    所有具体的Agent实现都应该继承此类并实现抽象方法
+    """
+
+    # 类级别的实例缓存，确保每个Agent子类的单例
+    _class_instances: Dict[str, "BaseAgent"] = {}
+    _class_lock = threading.Lock()
+
+    @classmethod
+    def get_instance(
+        cls,
+        model_name: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        llm_interface: Optional[OpenAICompatible] = None,
+        **kwargs,
+    ) -> "BaseAgent":
+        """
+        获取Agent实例的类方法（单例模式）
+
+        Args:
+            model_name: 模型名称
+            name: Agent名称
+            description: Agent描述
+            llm_interface: LLM接口
+            **kwargs: 其他参数
+
+        Returns:
+            Agent实例
+        """
+        with cls._class_lock:
+            # 使用类名和model_name作为唯一标识
+            instance_key = f"{cls.__name__}:{model_name}"
+
+            if instance_key not in cls._class_instances:
+                if not llm_interface:
+                    # 如果没有提供llm_interface，尝试从配置获取
+                    from config.config import get_config
+
+                    config = get_config()
+                    llm_interface = config.BASIC_INTERFACE
+
+                instance_name = name or f"{model_name}-agent"
+                instance_description = description or f"Agent instance for {model_name}"
+
+                cls._class_instances[instance_key] = cls(
+                    name=instance_name,
+                    description=instance_description,
+                    llm_interface=llm_interface,
+                    model_name=model_name,
+                    **kwargs,
+                )
+
+            return cls._class_instances[instance_key]
+
+    @classmethod
+    def clear_instances(cls):
+        """清空所有实例缓存"""
+        with cls._class_lock:
+            cls._class_instances.clear()
+
+    @classmethod
+    def get_all_instances(cls) -> Dict[str, "BaseAgent"]:
+        """获取所有实例"""
+        return cls._class_instances.copy()
 
     def __init__(
         self,
         name: str,
         description: str,
-        toolkit: Optional[Sequence[Tool | Callable]] = None,
         llm_interface: Optional[OpenAICompatible] = None,
-        max_history_length: int = 5,
-        save_context: bool = True,
-        context_file: Optional[str] = None,
+        model_name: Optional[str] = None,  # 添加model_name参数
+        **kwargs,  # 额外的参数，子类可以处理
     ):
         self.name = name
         self.description = description
-        self.toolkit = toolkit if toolkit is not None else []
+        self.model_name = model_name  # 存储model_name
         self.llm_interface = llm_interface
 
         if not self.llm_interface:
             raise ValueError("llm_interface must be provided")
 
-        # 使用全局单例的上下文管理器
-        self.context = ensure_global_context(
-            llm_interface=self.llm_interface,
-            max_history_length=max_history_length,
-            save_to_file=save_context,
-            context_file=context_file,
-        )
+        # 子类需要定义自己的工具集
+        self.toolkit = self.get_toolkit()
 
-        # 使用全局 SketchPad
-        self.sketch_pad = get_global_sketch_pad()
-
+        # 初始化chat函数
         self.chat = llm_chat(
             llm_interface=self.llm_interface,
-            toolkit=self.toolkit,  # type: ignore[call-arg]
+            toolkit=self.toolkit,  # type: ignore
             stream=True,
+            return_mode="raw",
             max_tool_calls=2000,
             timeout=600,
+            temperature=1.0,
         )(self.chat_impl)
 
-        # 移除原来的历史总结功能，现在由ConversationContext处理
-        # self.history: List[Dict[str, str]] = []
+    @abstractmethod
+    def get_toolkit(self) -> Sequence[Callable]:
+        """
+        获取Agent专用的工具集（抽象方法）
 
-    @staticmethod
+        子类必须实现此方法来定义自己的工具集
+
+        Returns:
+            工具函数列表
+        """
+        pass
+
+    @abstractmethod
     def chat_impl(
-        history: List[Dict[str, str]], query: str, time: str, sketch_pad_summary: str
-    ) -> Generator[Tuple[str, List[Dict[str, str]]], None, None]:  # type: ignore[override]
+        self,
+        history: List[Dict[str, str]],
+        query: str,
+        sketch_pad_summary: str,
+    ) -> Generator[Tuple[str, List[Dict[str, str]]], None, None]:
         """
-        # 🧠 身份说明
-        你是一个**通用智能助手（Universal AI Assistant）**，具备强大的任务规划、执行和管理能力。
-        你能够处理各种类型的任务，从简单的信息查询到复杂的多步骤项目规划。
-        你具备上下文记忆能力、任务分解能力以及动态调整策略的能力。
+        Agent的对话实现逻辑（抽象方法）
 
-        你以自然、友好的方式与用户交流，目标是**高效、准确、有条理地**帮助用户完成各种任务。
+        子类必须实现此方法来定义具体的对话行为
 
-        ---
+        Args:
+            history: 对话历史
+            query: 用户查询
+            sketch_pad_summary: SketchPad摘要
 
-        # 🚦 任务处理策略
-
-        根据任务复杂度，采取分层处理策略：
-
-        ## 🎯 简单任务模式
-        **特征**：单步骤即可完成，不需要复杂规划
-        **处理方式**：直接执行，立即给出结果
-        **示例**：
-        - 回答知识性问题
-        - 简单计算
-        - 单一工具调用
-        - 基础信息查询
-
-        ## � 中等任务模式
-        **特征**：需要2-5个步骤，有明确的执行顺序
-        **处理方式**：
-        1. 将任务分解为具体步骤
-        2. 在sketch_pad中创建Markdown格式的checklist
-        3. 逐步执行，每完成一步就更新checklist状态
-        4. 确保每个步骤都有明确的完成标准
-
-        **Checklist格式示例**：
-        ```markdown
-        # 任务：[任务名称]
-        
-        ## 执行计划
-        - [ ] 步骤1：具体描述
-        - [ ] 步骤2：具体描述
-        - [ ] 步骤3：具体描述
-        
-        ## 执行状态
-        - 当前步骤：步骤1
-        - 开始时间：[时间]
-        - 预计完成时间：[时间]
-        ```
-
-        ## 🔀 复杂任务模式
-        **特征**：需要多个子目标，涉及不确定性和动态调整
-        **处理方式**：
-        1. 将复杂任务分解为多个中等或简单子任务
-        2. 为每个子任务创建独立的checklist
-        3. 建立主任务的总体规划checklist
-        4. 根据执行结果动态调整后续计划
-        5. 处理子任务间的依赖关系
-
-        **复杂任务Checklist格式示例**：
-        ```markdown
-        # 主任务：[任务名称]
-        
-        ## 总体规划
-        - [ ] 子任务1：[名称] (简单/中等)
-        - [ ] 子任务2：[名称] (简单/中等)
-        - [ ] 子任务3：[名称] (简单/中等)
-        
-        ## 当前执行状态
-        - 活跃子任务：[子任务名称]
-        - 已完成：0/3
-        - 需要调整：否
-        
-        ## 依赖关系
-        - 子任务2 依赖于 子任务1
-        - 子任务3 依赖于 子任务1, 子任务2
-        ```
-
-        ---
-
-        # 🔧 工具说明
-
-        你具备以下核心能力（以工具形式封装），可按需调用：
-
-        ## sketch_pad_operations
-        🧠 任务管理和记忆系统，用于存储和管理任务规划、执行状态、中间结果等。
-
-        支持操作：`store`、`retrieve`、`search`、`delete`、`stats`
-
-        **核心用途**：
-        - 存储任务checklist和执行状态
-        - 保存中间结果和临时数据
-        - 维护任务依赖关系
-        - 记录执行历史和经验
-
-        ---
-
-        # 🔄 智能工作流程
-
-        ## 📊 任务复杂度判断标准
-        **简单任务**：
-        - 单一明确目标
-        - 不需要多步骤规划
-        - 可以立即执行完成
-        
-        **中等任务**：
-        - 需要2-5个明确步骤
-        - 步骤间有一定依赖关系
-        - 总执行时间在合理范围内
-        
-        **复杂任务**：
-        - 包含多个子目标
-        - 需要动态调整策略
-        - 涉及不确定因素
-        - 可能需要长时间执行
-
-        ## 📋 标准执行流程
-
-        ### 对于中等任务：
-        1. **任务分析**：确定所需步骤和依赖关系
-        2. **创建checklist**：在sketch_pad中存储Markdown格式的任务列表
-        3. **逐步执行**：按顺序执行每个步骤
-        4. **状态更新**：每完成一步立即更新checklist
-        5. **结果确认**：确保每步都达到预期效果
-
-        ### 对于复杂任务：
-        1. **任务分解**：将复杂任务拆分为子任务
-        2. **规划架构**：创建主任务和子任务的checklist体系
-        3. **依赖分析**：识别和记录任务间依赖关系
-        4. **动态执行**：根据执行结果调整后续计划
-        5. **持续监控**：跟踪整体进度和局部调整
-
-        ---
-
-        # 🎨 用户体验原则
-
-        - **透明度**：始终让用户了解当前执行状态和下一步计划
-        - **灵活性**：根据实际情况动态调整任务规划
-        - **可追溯**：保持完整的执行记录和决策过程
-        - **高效性**：避免不必要的复杂化，能简单解决就不复杂化
-        - **交互友好**：使用自然语言与用户沟通，避免专业术语堆砌
-        - **容错性**：提供错误恢复机制，允许用户修正或重新规划
-
-        ---
-
-        # ⚠️ 执行要点
-
-        - **工具调用前说明**：使用工具前告知用户 "🔧 我将使用工具：<tool name> 来 [具体用途]"
-        - **错误处理**：执行失败时分析原因并尝试修复或调整策略
-        - **状态同步**：确保sketch_pad中的checklist始终反映最新状态
-        - **结果验证**：每个步骤完成后验证是否达到预期目标
-        - **用户反馈**：在关键节点征询用户意见和确认
-        - **进度报告**：定期向用户汇报任务执行进展
-        - **资源管理**：合理利用可用工具和资源，避免重复劳动
-
+        Returns:
+            Generator yielding (response_chunk, updated_history)
         """
+        pass
 
-    def _get_sketch_pad_summary(self) -> str:
+    @abstractmethod
+    def run(self, query: str) -> AsyncGenerator[str, None]:
+        """
+        运行Agent处理用户查询（抽象方法）
+
+        Args:
+            query: 用户查询
+
+        Returns:
+            AsyncGenerator yielding response chunks
+        """
+        pass
+
+    # 通用辅助方法
+    def get_sketch_pad_summary(self) -> str:
         """获取SketchPad的摘要信息，包括所有keys和截断的values"""
         try:
-            # 获取所有项目的详细信息
-            all_items = self.sketch_pad.list_all(include_details=True)
+            sketch_pad = get_current_sketch_pad()
+            if sketch_pad is None:
+                return "SketchPad不可用：没有活动的conversation上下文"
+            
+            # 获取所有项目的详细信息（包含值）
+            all_items = sketch_pad.list_items(include_value=True)
 
             if not all_items:
                 return "SketchPad为空：无存储内容"
@@ -224,30 +192,25 @@ class BaseAgent:
             summary_lines = [f"SketchPad当前状态 (共{len(all_items)}个项目):"]
 
             for item in all_items[:20]:  # 限制显示前20个项目
-                key = item["key"]
-                tags = ", ".join(item["tags"]) if item["tags"] else "无标签"
-                timestamp = item["timestamp"]
-                content_type = item["content_type"]
+                key = item.key
+                tags = ", ".join(item.tags) if item.tags else "无标签"
+                timestamp = item.timestamp
+                content_type = item.content_type
 
-                # 获取完整内容并截断
-                full_item = self.sketch_pad.get_item(key)
-                if full_item:
-                    value_str = str(full_item.value)
-                    # 截断内容到合理长度
-                    if len(value_str) > 100:
-                        value_preview = value_str[:100] + "..."
-                    else:
-                        value_preview = value_str
-
-                    # 处理换行符
-                    value_preview = value_preview.replace("\n", "\\n")
-
-                    summary_lines.append(
-                        f"  • {key}: [{content_type}] {value_preview} "
-                        f"(标签: {tags}, 时间: {timestamp[:19]})"
-                    )
+                # 使用列表项中包含的值进行预览
+                value_obj = item.value
+                value_str = str(value_obj) if value_obj is not None else ""
+                if len(value_str) > 100:
+                    value_preview = value_str[:100] + "..."
                 else:
-                    summary_lines.append(f"  • {key}: [已删除或无法访问]")
+                    value_preview = value_str
+
+                value_preview = value_preview.replace("\n", "\\n")
+
+                summary_lines.append(
+                    f"  • {key}: [{content_type}] {value_preview} "
+                    f"(标签: {tags}, 时间: {timestamp[:19]})"
+                )
 
             if len(all_items) > 20:
                 summary_lines.append(f"  ... 还有 {len(all_items) - 20} 个项目未显示")
@@ -257,77 +220,80 @@ class BaseAgent:
         except Exception as e:
             return f"获取SketchPad摘要时出错: {str(e)}"
 
-    async def run(self, query: str) -> AsyncGenerator[str, None]:
-        """Run the agent with the given query.
-
-        Args:
-            query (str): The query to process.
-
-        Returns:
-            Generator[str, None, None]: The response chunks from the agent.
-        """
-        if not query:
-            raise ValueError("Query must not be empty")
-
-        # 获得时间字符串
-        import time
-
-        current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-
-        # 获得SketchPad的key和截断的value内容
-        sketch_pad_summary = self._get_sketch_pad_summary()
-
-        # 获取格式化的历史记录用于LLM调用
-        history = self.context.get_formatted_history()
-
-        response = self.chat(history, query, current_time, sketch_pad_summary)
-
-        # 处理响应流并获取最终的历史记录
-        final_history = history
-
-        for response_str, updated_history in response:
-            final_history = updated_history
-            yield response_str
-
-        # 同步chat函数更新后的历史记录到context
-        await self.context.sync_with_external_history(final_history)
-
     # 上下文管理的便捷方法
     def get_conversation_history(self, limit: Optional[int] = None):
         """获取当前会话的对话历史"""
-        return self.context.get_history(limit)
+        context = get_current_context()
+        if context is None:
+            raise RuntimeError("No active conversation context")
+        return context.retrieve_messages(limit)
 
     def get_full_saved_history(self, limit: Optional[int] = None):
         """获取完整保存的对话历史"""
-        return self.context.get_full_saved_history(limit)
+        context = get_current_context()
+        if context is None:
+            raise RuntimeError("No active conversation context")
+        return context.retrieve_messages(limit)
 
     def search_conversation(self, query: str, limit: int = 5):
         """搜索当前会话的对话历史"""
-        return self.context.search_history(query, limit)
+        context = get_current_context()
+        if context is None:
+            raise RuntimeError("No active conversation context")
+        # 使用简单的搜索实现
+        return context.search_messages(query, limit)
 
     def search_full_history(self, query: str, limit: int = 5):
         """搜索完整保存的对话历史"""
-        return self.context.search_full_history(query, limit)
+        context = get_current_context()
+        if context is None:
+            raise RuntimeError("No active conversation context")
+        return context.search_messages(query, limit)
 
-    def clear_conversation(self, keep_summary: bool = True):
+    def clear_conversation(self) -> None:
         """清空当前会话的对话历史"""
-        self.context.clear_history(keep_summary)
+        context = get_current_context()
+        if context is None:
+            raise RuntimeError("No active conversation context")
+        context.clear_messages(keep_summary=True)
 
-    def get_conversation_summary(self):
+    def get_conversation_summary(self) -> str:
         """获取当前会话的对话摘要"""
-        return self.context.get_context_summary()
+        context = get_current_context()
+        if context is None:
+            raise RuntimeError("No active conversation context")
+        return context.get_summary() or ""
 
-    def get_full_saved_summary(self):
+    def get_full_saved_summary(self) -> str:
         """获取完整保存的对话摘要"""
-        return self.context.get_full_saved_summary()
+        context = get_current_context()
+        if context is None:
+            raise RuntimeError("No active conversation context")
+        return context.get_summary() or ""
 
-    def export_conversation(self, file_path: str):
+    def export_conversation(self, file_path: str) -> None:
         """导出当前会话的对话记录"""
-        self.context.export_context(file_path)
+        context = get_current_context()
+        if context is None:
+            raise RuntimeError("No active conversation context")
+        data = context.serialize()
+        dir_path = os.path.dirname(file_path)
+        if dir_path:
+            os.makedirs(dir_path, exist_ok=True)
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
 
-    def import_conversation(self, file_path: str, merge: bool = False):
+    def import_conversation(self, file_path: str, merge: bool = False) -> None:
         """导入对话记录"""
-        self.context.import_context(file_path, merge)
+        context = get_current_context()
+        if context is None:
+            raise RuntimeError("No active conversation context")
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not merge:
+            # 清空现有消息但保留摘要
+            context.clear_messages(keep_summary=True)
+        context.deserialize(data)
 
     # SketchPad 管理的便捷方法
     async def store_in_sketch_pad(
@@ -336,31 +302,161 @@ class BaseAgent:
         key: Optional[str] = None,
         tags: Optional[List[str]] = None,
         ttl: Optional[int] = None,
-    ):
+    ) -> str:
         """存储数据到 SketchPad"""
-        return await self.sketch_pad.store(value, key, ttl=ttl, tags=tags)
+        sketch_pad = get_current_sketch_pad()
+        if sketch_pad is None:
+            raise RuntimeError("No active conversation context")
+        # 生成键名（若未提供）
+        item_key = key or f"item_{uuid.uuid4().hex[:8]}"
+        # tags 转换为 set
+        tags_set = set(tags) if tags else None
+        await sketch_pad.set_item(
+            key=item_key,
+            value=value,
+            ttl=ttl,
+            summary=None,
+            tags=tags_set,
+        )
+        return item_key
 
-    def get_from_sketch_pad(self, key: str):
+    def get_from_sketch_pad(self, key: str) -> Any:
         """从 SketchPad 获取数据"""
-        return self.sketch_pad.retrieve(key)
+        sketch_pad = get_current_sketch_pad()
+        if sketch_pad is None:
+            raise RuntimeError("No active conversation context")
+        return sketch_pad.get_value(key)
 
     def search_sketch_pad(self, query: str, limit: int = 5):
         """搜索 SketchPad 内容"""
-        return self.sketch_pad.search(query, limit)
+        sketch_pad = get_current_sketch_pad()
+        if sketch_pad is None:
+            raise RuntimeError("No active conversation context")
+        return sketch_pad.search_by_content(query, limit)
 
     def get_sketch_pad_stats(self):
         """获取 SketchPad 统计信息"""
-        return self.sketch_pad.get_statistics()
+        sketch_pad = get_current_sketch_pad()
+        if sketch_pad is None:
+            raise RuntimeError("No active conversation context")
+        return sketch_pad.get_statistics()
 
     def clear_sketch_pad(self):
         """清空 SketchPad"""
-        self.sketch_pad.clear_all()
+        sketch_pad = get_current_sketch_pad()
+        if sketch_pad is None:
+            raise RuntimeError("No active conversation context")
+        sketch_pad.clear()
 
     def get_session_info(self):
         """获取会话信息（包括对话历史和 SketchPad 统计）"""
+        try:
+            conversation_count = len(self.get_conversation_history())
+            sketch_pad_stats = self.get_sketch_pad_stats()
+            conversation_summary = self.get_conversation_summary()
+        except RuntimeError:
+            # 如果没有活动的conversation上下文，返回基本信息
+            conversation_count = 0
+            sketch_pad_stats = {}
+            conversation_summary = None
+            
         return {
             "agent_name": self.name,
-            "conversation_count": len(self.get_conversation_history()),
-            "sketch_pad_stats": self.get_sketch_pad_stats(),
-            "conversation_summary": self.get_conversation_summary(),
+            "model_name": self.model_name,
+            "agent_class": self.__class__.__name__,
+            "conversation_count": conversation_count,
+            "sketch_pad_stats": sketch_pad_stats,
+            "conversation_summary": conversation_summary,
         }
+
+    # ===== 通用：流式输出与按时序持久化 =====
+    def _extract_text_from_chunk(self, chunk: Any) -> str:
+        """从原始流式增量中提取纯文本内容（若存在）。"""
+        try:
+            if not hasattr(chunk, "choices") or not chunk.choices:
+                return ""
+            choice = chunk.choices[0]
+            delta = getattr(choice, "delta", None)
+            if delta is None:
+                return ""
+            content = getattr(delta, "content", None)
+            return content or ""
+        except Exception:
+            return ""
+
+    def _msg_to_dict(self, msg: Any) -> Dict[str, Any]:
+        """将后端返回的消息统一转为字典结构，兼容对象与字典两种形态。"""
+        if isinstance(msg, dict):
+            return msg
+        return {
+            "role": getattr(msg, "role", None),
+            "content": getattr(msg, "content", None),
+            "tool_calls": getattr(msg, "tool_calls", None),
+            "tool_call_id": getattr(msg, "tool_call_id", None),
+        }
+
+    async def _stream_and_persist(
+        self, response_packages: Generator[Tuple[Any, List[Any]], None, None]
+    ) -> AsyncGenerator[Any, None]:
+        """
+        统一的流式处理与历史持久化逻辑：
+        - 连续累积助手文本；遇到 tooluse/tool 结果时先落盘已累积文本，再写工具消息；
+        - 确保历史中工具调用出现在其触发时刻之后，顺序正确。
+        """
+        context = get_current_context()
+        if context is None:
+            raise RuntimeError("No active conversation context")
+
+        assistant_buffer: str = ""
+        baseline_len: Optional[int] = None
+
+        for raw_response, current_messages in response_packages:
+            if baseline_len is None:
+                try:
+                    baseline_len = len(current_messages) if isinstance(current_messages, list) else 0
+                except Exception:
+                    baseline_len = 0
+
+            # 直接把原始增量向上游转发
+            yield raw_response
+
+            # 累积文本
+            delta_text = self._extract_text_from_chunk(raw_response)
+            if delta_text:
+                assistant_buffer += delta_text
+
+            # 检查新产生的消息（含工具调用/工具结果）并按时序写入
+            try:
+                if isinstance(current_messages, list):
+                    curr_len = len(current_messages)
+                    if baseline_len is not None and curr_len > baseline_len:
+                        new_msgs = current_messages[baseline_len:curr_len]
+                        for nm in (self._msg_to_dict(x) for x in new_msgs):
+                            role = nm.get("role")
+                            content = nm.get("content")
+                            tool_calls = nm.get("tool_calls")
+                            tool_call_id = nm.get("tool_call_id")
+
+                            # 工具相关出现前，先落盘已累积的助手文本
+                            if (role == "assistant" and tool_calls) or role == "tool":
+                                if assistant_buffer.strip():
+                                    await context.store_message(
+                                        Message(role="assistant", content=assistant_buffer)
+                                    )
+                                    assistant_buffer = ""
+
+                            if role == "assistant" and tool_calls:
+                                await context.store_message(
+                                    Message(role="assistant", content=None, tool_calls=tool_calls)
+                                )
+                            elif role == "tool":
+                                await context.store_message(
+                                    Message(role="tool", content=content, tool_call_id=tool_call_id)
+                                )
+                        baseline_len = curr_len
+            except Exception:
+                pass
+
+        # 流结束，写入残留的助手文本
+        if assistant_buffer.strip():
+            await context.store_message(Message(role="assistant", content=assistant_buffer))

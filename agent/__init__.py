@@ -1,17 +1,25 @@
 from .BaseAgent import BaseAgent
-from .global_agent import (
-    initialize_global_agent,
-    get_global_agent,
-    is_agent_initialized,
-    reset_global_agent,
-    GlobalAgentManager
+from .AgentRegister import (
+    AgentRegistry,
+    get_agent_registry,
+    register_agent,
+    get_agent,
+    list_available_models
 )
+
+from .SampleAgent import SampleAgent
 
 __all__ = [
     'BaseAgent',
-    'initialize_global_agent',
-    'get_global_agent', 
-    'is_agent_initialized',
-    'reset_global_agent',
-    'GlobalAgentManager'
+    'SampleAgent',
+    'AgentRegistry',
+    'get_agent_registry',
+    'register_agent',
+    'get_agent',
+    'list_available_models',
 ]
+
+
+# 注册Agent
+register_agent("sampleagent", SampleAgent)
+register_agent("simplemanus", SampleAgent)  # 为 Web 服务提供默认的 simplemanus 模型
