@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-CADDesigner API 服务器启动脚本
+SimpleManus API 服务器启动脚本
 重构版本 - 后端启动器
 """
 import sys
 import os
 import argparse
 import signal
+import multiprocessing
 from pathlib import Path
 
 # 添加项目根目录到Python路径
@@ -63,7 +64,7 @@ def signal_handler(signum, frame):
 def main():
     """主函数"""
     parser = argparse.ArgumentParser(
-        description="CADDesigner API 服务器启动器",
+        description="SimpleManus API 服务器启动器",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用示例:
@@ -85,7 +86,7 @@ def main():
   # 生产环境配置示例
   %(prog)s --host 0.0.0.0 --port 8000 \\
            --workers 4 --log-level info \\
-           --working-dir /var/lib/caddesigner
+           --working-dir /var/lib/simplemanus
 
 API端点:
   GET  /                           # 服务器信息
@@ -140,12 +141,12 @@ API端点:
         help="启用访问日志 (默认: 启用)"
     )
     
-    # 性能参数
+    # 性能参数  
     parser.add_argument(
         "--workers",
         type=int,
-        default=1,
-        help="工作进程数量 (默认: 1, reload模式下强制为1)"
+        default=None,  # 使用None来检测是否用户显式指定了workers
+        help="工作进程数量 (默认: CPU核心数*2+1)"
     )
     
     parser.add_argument(
@@ -195,7 +196,16 @@ API端点:
 
 
     try:
-        print("🚀 启动CADDesigner API 服务器...")
+        # 确定workers数量
+        default_workers = multiprocessing.cpu_count() * 2 + 1
+        if args.workers is None:
+            # 用户没有显式指定workers，使用默认计算值
+            workers = default_workers
+        else:
+            # 用户显式指定了workers
+            workers = args.workers
+        
+        print("🚀 启动SimpleManus API 服务器...")
         print("=" * 60)
         print(f"🌐 服务器地址: http://{args.host}:{args.port}")
         print(f"📖 API文档: http://{args.host}:{args.port}/docs")
@@ -205,8 +215,8 @@ API端点:
         
         if args.reload:
             print("🔄 开发模式: 启用 (自动重载)")
-        if args.workers > 1 and not args.reload:
-            print(f"⚡ 工作进程: {args.workers}")
+        if workers > 1:
+            print(f"⚡ 工作进程: {workers}")
         if args.debug:
             print("🐛 调试模式: 启用")
         
@@ -226,7 +236,7 @@ API端点:
             "reload": args.reload,
             "log_level": args.log_level,
             "access_log": args.access_log,
-            "workers": 1 if args.reload else args.workers,  # reload模式下只能使用1个worker
+            "workers": workers,
             "loop": args.loop,
         }
         

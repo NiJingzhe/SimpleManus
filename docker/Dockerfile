@@ -41,19 +41,18 @@ RUN apt-get update && apt-get install -y \
     fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
-# 安装 uv（通过 PyPI 安装二进制发行包）
-RUN export PIP_INDEX_URL="https://mirrors.ustc.edu.cn/pypi/web/simple"
-RUN pip install --no-cache-dir uv
 
 # 仅复制锁文件与项目描述以最大化缓存
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock requirements.txt ./
+
+# 安装 uv（通过 PyPI 安装二进制发行包）
+RUN export PIP_INDEX_URL="https://mirrors.aliyun.com/pypi/simple" && pip install --no-cache-dir -r requirements.txt
+
 
 # 使用 uv 基于锁文件同步依赖（生成 /app/.venv）
-RUN export UV_INDEX_URL="https://mirrors.ustc.edu.cn/pypi/web/simple"
-RUN uv sync --frozen --no-dev
+# RUN export UV_INDEX_URL="https://mirrors.aliyun.com/pypi/simple" && uv sync --frozen --no-dev
 
 # 确保使用项目虚拟环境中的 Python/可执行文件
-ENV PATH="/app/.venv/bin:${PATH}"
 ENV DISPLAY=:99
 ENV PYVISTA_OFF_SCREEN=true
 ENV PYVISTA_USE_PANEL=false

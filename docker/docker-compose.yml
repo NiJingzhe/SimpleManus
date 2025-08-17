@@ -32,10 +32,8 @@ services:
       - REDIS_HOST=simplemanus_redis
       - REDIS_PORT=9736
       - REDIS_DB=0
-      - LOG_LEVEL=info
+      - LOG_LEVEL=WARNING
       - WORKING_DIR=/app/workspace
-      - RAGFLOW_BASE_URL=${RAGFLOW_BASE_URL:-http://host.docker.internal}
-      - RAGFLOW_API_KEY=${RAGFLOW_API_KEY:-ragflow-yourkey}
     volumes:
       - app_data:/app/data
       - app_logs:/app/logs

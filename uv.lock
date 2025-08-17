@@ -495,14 +495,14 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "fastapi", specifier = ">=0.115.14" },
-    { name = "pydantic", specifier = ">=2.5.0" },
-    { name = "pydantic-core", specifier = ">=2.33.2" },
-    { name = "redis", specifier = ">=6.4.0" },
+    { name = "fastapi" },
+    { name = "pydantic" },
+    { name = "pydantic-core" },
+    { name = "redis" },
     { name = "simplellmfunc", specifier = ">=0.2.13" },
-    { name = "uvicorn", specifier = ">=0.34.3" },
-    { name = "websocket", specifier = ">=0.2.1" },
-    { name = "websockets", specifier = ">=15.0.1" },
+    { name = "uvicorn" },
+    { name = "websocket" },
+    { name = "websockets" },
 ]
 
 [[package]]
