@@ -7,6 +7,7 @@ from datetime import datetime
 from SimpleLLMFunc import OpenAICompatible
 
 from context.sketch_pad import SketchPadBackend, RedisFileSketchPadBackend
+from context.mongo_sketch import RedisMongoSketchPadBackend
 from config.config import get_config
 
 
@@ -24,7 +25,7 @@ class SketchManager:
     _instance = None
     _lock: threading.Lock = threading.Lock()
 
-    def __new__(cls, backend_class: Type[SketchPadBackend] = RedisFileSketchPadBackend):
+    def __new__(cls, backend_class: Type[SketchPadBackend] = RedisMongoSketchPadBackend):
         """单例模式实现"""
         if cls._instance is None:
             with cls._lock:
@@ -108,20 +109,18 @@ class SketchManager:
             if sketch_id in self._active_sketches:
                 return self._active_sketches[sketch_id]
 
-            # 尝试从文件加载（如果后端支持）
-            sketch_file = os.path.join(self.sketch_dir, f"skt_{sketch_id}.json")
-            if os.path.exists(sketch_file):
-                try:
-                    sketch_pad = self.backend_class(
-                        sketch_pad_id=sketch_id,
-                        file_path=sketch_file,
-                    )
-                    self._active_sketches[sketch_id] = sketch_pad
-                    return sketch_pad
-                except Exception as e:
-                    print(f"Warning: Failed to load sketch {sketch_id}: {e}")
-
-            return None
+            # 对于MongoDB模式，尝试创建/加载sketch_pad
+            # RedisMongoSketchPadBackend的_init_sketch_pad方法会自动处理从MongoDB加载或创建新sketch_pad
+            try:
+                sketch_pad = self.backend_class(
+                    sketch_pad_id=sketch_id,
+                )
+                self._active_sketches[sketch_id] = sketch_pad
+                return sketch_pad
+            except Exception as e:
+                from SimpleLLMFunc.logger import app_log
+                app_log(f"Warning: Failed to get/create sketch_pad {sketch_id}: {e}")
+                return None
 
     def delete_sketch_pad(self, sketch_id: str) -> bool:
         """
@@ -455,27 +454,30 @@ def get_sketch_manager() -> SketchManager:
         redis_host = config.REDIS_HOST
         redis_port = int(config.REDIS_PORT)
         redis_db = int(config.REDIS_DB)
+        redis_password = config.REDIS_PASSWORD
 
         # 创建自定义backend类，预配置Redis参数
-        class ConfiguredRedisFileSketchPadBackend(RedisFileSketchPadBackend):
+        class ConfiguredRedisMongoSketchPadBackend(RedisMongoSketchPadBackend):
             def __init__(
                 self,
                 sketch_pad_id: str,
                 redis_host: str = redis_host,
                 redis_port: int = redis_port,
                 redis_db: int = redis_db,
-                file_path: Optional[str] = None,
+                redis_password: Optional[str] = redis_password,
+                file_path: Optional[str] = None,  # 保持兼容性
             ):
                 super().__init__(
                     sketch_pad_id=sketch_pad_id,
                     redis_host=redis_host,
                     redis_port=redis_port,
                     redis_db=redis_db,
+                    redis_password=redis_password,
                     file_path=file_path,
                 )
 
         # 使用配置好的backend类创建SketchManager
         _global_sketch_manager = SketchManager(
-            backend_class=ConfiguredRedisFileSketchPadBackend
+            backend_class=ConfiguredRedisMongoSketchPadBackend
         )
     return _global_sketch_manager

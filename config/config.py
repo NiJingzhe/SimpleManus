@@ -73,9 +73,9 @@ class Config:
 
     # redis url
     REDIS_DB: int = int(os.getenv("REDIS_DB", 0))
-    REDIS_PASSWORD: Optional[str] = os.getenv("REDIS_PASSWORD", None)
+    REDIS_PASSWORD: Optional[str] = os.getenv("REDIS_PASSWORD", "simplemanus_redis_password")
     REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
-    REDIS_PORT: int = int(os.getenv("REDIS_PORT", 9736))
+    REDIS_PORT: int = int(os.getenv("REDIS_PORT", 9737))
 
     # 上下文存储目录配置
     CONTEXT_DIR: str = os.getenv("CONTEXT_DIR", "data/contexts")
@@ -83,6 +83,22 @@ class Config:
     
     # SketchPad存储目录配置  
     SKETCH_DIR: str = os.getenv("SKETCH_DIR", "data/sketches")
+
+    # ==================== MongoDB 配置参数 ====================
+    
+    # MongoDB连接配置 (适配Docker环境变量)
+    MONGO_HOST: str = os.getenv("MONGODB_HOST", os.getenv("MONGO_HOST", "localhost"))
+    MONGO_PORT: int = int(os.getenv("MONGODB_PORT", os.getenv("MONGO_PORT", 27018)))
+    MONGO_DATABASE: str = os.getenv("MONGODB_DATABASE", os.getenv("MONGO_DATABASE", "simplemanus"))
+    MONGO_USERNAME: Optional[str] = os.getenv("MONGODB_USERNAME", os.getenv("MONGO_USERNAME", None))
+    MONGO_PASSWORD: Optional[str] = os.getenv("MONGODB_PASSWORD", os.getenv("MONGO_PASSWORD", None))
+    MONGO_AUTH_SOURCE: str = os.getenv("MONGO_AUTH_SOURCE", "admin")
+    
+    # MongoDB连接池配置
+    MONGO_MAX_POOL_SIZE: int = int(os.getenv("MONGO_MAX_POOL_SIZE", 50))
+    MONGO_MIN_POOL_SIZE: int = int(os.getenv("MONGO_MIN_POOL_SIZE", 5))
+    MONGO_SOCKET_TIMEOUT: int = int(os.getenv("MONGO_SOCKET_TIMEOUT", 30000))  # 毫秒
+    MONGO_SERVER_SELECTION_TIMEOUT: int = int(os.getenv("MONGO_SERVER_SELECTION_TIMEOUT", 5000))  # 毫秒
 
 
 @lru_cache()

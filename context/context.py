@@ -1,5 +1,5 @@
-from typing import Dict, List, Optional, Any, Union, override
-from SimpleLLMFunc import async_llm_function, OpenAICompatible
+from typing import Dict, List, Optional, Any, Union, override, cast
+from SimpleLLMFunc import llm_function, OpenAICompatible
 import json
 import os
 import redis
@@ -177,11 +177,11 @@ class RedisFileContextBackend(ContextBackend):
         # 初始化历史总结函数
         self._summarize_func = None
         if self.llm_interface:
-            self._summarize_func = async_llm_function(
+            self._summarize_func = llm_function(
                 llm_interface=self.llm_interface,
                 toolkit=[],
                 timeout=600,
-            )(self._summarize_history_impl)
+            )(cast(Any, self._summarize_history_impl))
         
         # 初始化元数据
         self._init_metadata()
@@ -255,9 +255,11 @@ class RedisFileContextBackend(ContextBackend):
             message_data_list = self.redis_client.lrange(messages_key, 0, -1)
             
             messages = []
-            for message_data in message_data_list:
+            # 确保 message_data_list 是一个列表
+            data_list = message_data_list if isinstance(message_data_list, list) else []
+            for message_data in data_list:
                 try:
-                    message_dict = json.loads(message_data)
+                    message_dict = json.loads(str(message_data))
                     message = Message(**message_dict)
                     messages.append(message)
                 except Exception as e:
@@ -283,7 +285,8 @@ class RedisFileContextBackend(ContextBackend):
         """获取对话摘要"""
         with self._lock:
             summary_key = self._get_redis_key("summary")
-            return self.redis_client.get(summary_key)
+            result = self.redis_client.get(summary_key)
+            return str(result) if result is not None else None
 
     @override
     def update_metadata(self, metadata: Dict[str, Any]) -> None:
@@ -329,7 +332,8 @@ class RedisFileContextBackend(ContextBackend):
         """获取消息数量"""
         with self._lock:
             messages_key = self._get_redis_key("messages")
-            return self.redis_client.llen(messages_key)
+            result = self.redis_client.llen(messages_key)
+            return int(result) if isinstance(result, (int, float)) else 0
 
     @override
     def clear_messages(self, keep_summary: bool = True) -> None:
@@ -426,7 +430,8 @@ class RedisFileContextBackend(ContextBackend):
         stored_metadata = self.redis_client.get(metadata_key)
         if stored_metadata:
             try:
-                self._metadata.update(json.loads(stored_metadata))
+                metadata_str = str(stored_metadata) if stored_metadata is not None else "{}"
+                self._metadata.update(json.loads(metadata_str))
             except Exception as e:
                 print(f"Warning: Failed to restore metadata from Redis: {e}")
         

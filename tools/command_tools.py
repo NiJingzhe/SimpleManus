@@ -7,7 +7,7 @@ from context.conversation_manager import get_current_sketch_pad
     name="execute_command",
     description="Execute a system command in shell and return the output, with automatic SketchPad integration for command history and results.",
 )
-def execute_command(command: str, store_result: bool = True) -> str:
+async def execute_command(command: str, store_result: bool = True) -> str:
     """Execute a system command in shell and return the output.
 
     Args:
@@ -57,8 +57,10 @@ def execute_command(command: str, store_result: bool = True) -> str:
                     # 在闭包内部重新获取sketch_pad，确保是最新状态
                     sketch_pad = get_current_sketch_pad()
                     if sketch_pad is None:
-                        raise ValueError("无活动conversation上下文，无法存储执行结果到SketchPad")
-                    
+                        raise ValueError(
+                            "无活动conversation上下文，无法存储执行结果到SketchPad"
+                        )
+
                     # 生成自定义key
                     exec_key = f"exec_{uuid.uuid4().hex[:8]}"
 
@@ -138,8 +140,10 @@ def execute_command(command: str, store_result: bool = True) -> str:
                     # 在闭包内部重新获取sketch_pad，确保是最新状态
                     sketch_pad = get_current_sketch_pad()
                     if sketch_pad is None:
-                        raise ValueError("无活动conversation上下文，无法存储错误记录到SketchPad")
-                    
+                        raise ValueError(
+                            "无活动conversation上下文，无法存储错误记录到SketchPad"
+                        )
+
                     error_key = f"error_{uuid.uuid4().hex[:8]}"
                     return await sketch_pad.set_item(
                         key=error_key,
@@ -186,12 +190,14 @@ def execute_command(command: str, store_result: bool = True) -> str:
                     # 在闭包内部重新获取sketch_pad，确保是最新状态
                     sketch_pad = get_current_sketch_pad()
                     if sketch_pad is None:
-                        raise ValueError("无活动conversation上下文，无法存储异常记录到SketchPad")
-                    
+                        raise ValueError(
+                            "无活动conversation上下文，无法存储异常记录到SketchPad"
+                        )
+
                     exception_key = f"exception_{uuid.uuid4().hex[:8]}"
                     return await sketch_pad.set_item(
                         key=exception_key,
-                        value=f"Command: {command}\nException: {str(e)}\nTimestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}",
+                        value=f"Command: {command}\nException: {str(e)}\nTimestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}",  # type: ignore
                         ttl=None,
                         summary=f"Command execution exception: {command}",
                         tags={"command_execution", "exception", "error"},

@@ -51,6 +51,7 @@ def _sync_sketchpad_copies(file_path: str, sketch_pad) -> None:
                 for key, old_item in results:
                     if old_item and str(old_item.value) != latest_content:
                         try:
+
                             async def _store_updated_content():
                                 return await sketch_pad.set_item(
                                     key=key,
@@ -63,7 +64,9 @@ def _sync_sketchpad_copies(file_path: str, sketch_pad) -> None:
                             _ = safe_asyncio_run(_store_updated_content)
                             updated_count += 1
                         except Exception as e:
-                            print_tool_output("⚠️ 副本更新失败", f"Key: {key}, Error: {e}")
+                            print_tool_output(
+                                "⚠️ 副本更新失败", f"Key: {key}, Error: {e}"
+                            )
 
         if updated_count > 0:
             print_tool_output(
@@ -79,7 +82,7 @@ def _sync_sketchpad_copies(file_path: str, sketch_pad) -> None:
     name="write_file",
     description="Perform file writing operations: overwrite, modify, insert, or append content. Supports SketchPad key for content input and automatically syncs changes with existing SketchPad copies.",
 )
-def write_file(
+async def write_file(
     file_path: str,
     operation: str,
     content: str,
@@ -214,7 +217,7 @@ def write_file(
     name="read_or_search_file",
     description="Perform file reading or searching operations: read file content (all or specific lines) or search with regex. Supports SketchPad key for search content and stores results back to SketchPad.",
 )
-def read_or_search_file(
+async def read_or_search_file(
     operation: str,
     file_path: Optional[str] = None,
     content: Optional[str] = None,
@@ -252,7 +255,7 @@ def read_or_search_file(
     sketch_pad = get_current_sketch_pad()
     if sketch_pad is None:
         print_tool_output("⚠️ 警告", "无活动conversation上下文，将跳过SketchPad集成功能")
-        
+
     search_content_from_arg = None
 
     # Validate arguments
@@ -333,7 +336,12 @@ def read_or_search_file(
                 else "".join(selected)
             )
 
-            if store_result and read_content.strip() and file_path and sketch_pad is not None:
+            if (
+                store_result
+                and read_content.strip()
+                and file_path
+                and sketch_pad is not None
+            ):
                 import uuid
 
                 content_key = f"file_{uuid.uuid4().hex[:8]}"
@@ -341,7 +349,7 @@ def read_or_search_file(
                 async def _store_read_content():
                     tags = {
                         "file_content",
-                        "read_result", 
+                        "read_result",
                         "text",
                         f"file_path:{file_path}",
                         f"source_file:{os.path.abspath(file_path)}",
@@ -444,4 +452,3 @@ def read_or_search_file(
 
     except Exception as e:
         return print_error(str(e))
-

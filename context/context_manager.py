@@ -7,6 +7,7 @@ from datetime import datetime
 from SimpleLLMFunc import OpenAICompatible
 from context.schemas import Message
 from context.context import ContextBackend, RedisFileContextBackend
+from context.mongo_context import RedisMongoContextBackend
 from config.config import get_config
 from SimpleLLMFunc.logger import push_warning, app_log
 
@@ -25,7 +26,7 @@ class ContextManager:
     _instance = None
     _lock: threading.Lock = threading.Lock()
 
-    def __new__(cls, backend_class: Type[ContextBackend] = RedisFileContextBackend):
+    def __new__(cls, backend_class: Type[ContextBackend] = RedisMongoContextBackend):
         """单例模式实现"""
         if cls._instance is None:
             with cls._lock:
@@ -119,22 +120,19 @@ class ContextManager:
             if context_id in self._active_contexts:
                 return self._active_contexts[context_id]
 
-            # 尝试从文件加载（如果后端支持）
-            context_file = os.path.join(self.context_dir, f"ctx_{context_id}.json")
-            if os.path.exists(context_file):
-                try:
-                    context = self.backend_class(
-                        context_id=context_id,
-                        llm_interface=self.config.CONTEXT_SUMMARY_INTERFACE,  # 可以后续设置
-                        max_history_length=5,
-                        file_path=context_file,
-                    )
-                    self._active_contexts[context_id] = context
-                    return context
-                except Exception as e:
-                    print(f"Warning: Failed to load context {context_id}: {e}")
-
-            return None
+            # 对于MongoDB模式，尝试创建/加载context
+            # RedisMongoContextBackend的_init_context方法会自动处理从MongoDB加载或创建新context
+            try:
+                context = self.backend_class(
+                    context_id=context_id,
+                    llm_interface=self.config.CONTEXT_SUMMARY_INTERFACE,
+                    max_history_length=self.config.CONTEXT_MAX_HISTORY_LENGTH,
+                )
+                self._active_contexts[context_id] = context
+                return context
+            except Exception as e:
+                app_log(f"Warning: Failed to get/create context {context_id}: {e}")
+                return None
 
     def delete_context(self, context_id: str) -> bool:
         """
@@ -366,9 +364,10 @@ def get_context_manager() -> ContextManager:
         redis_host = config.REDIS_HOST
         redis_port = int(config.REDIS_PORT)
         redis_db = int(config.REDIS_DB)
+        redis_password = config.REDIS_PASSWORD
 
         # 创建自定义backend类，预配置Redis参数
-        class ConfiguredRedisFileBackend(RedisFileContextBackend):
+        class ConfiguredRedisMongoBackend(RedisMongoContextBackend):
             def __init__(
                 self,
                 context_id: str,
@@ -379,7 +378,8 @@ def get_context_manager() -> ContextManager:
                 redis_host: str = redis_host,
                 redis_port: int = redis_port,
                 redis_db: int = redis_db,
-                file_path: str = "",
+                redis_password: Optional[str] = redis_password,
+                file_path: Optional[str] = None,  # 保持兼容性
             ):
                 super().__init__(
                     context_id=context_id,
@@ -388,18 +388,12 @@ def get_context_manager() -> ContextManager:
                     redis_host=redis_host,
                     redis_port=redis_port,
                     redis_db=redis_db,
+                    redis_password=redis_password,
                     file_path=file_path,
                 )
-                self.file_path = file_path
-                self.context_id = context_id
-                self.llm_interface = llm_interface
-                self.max_history_length = max_history_length
-                self.redis_host = redis_host
-                self.redis_port = redis_port
-                self.redis_db = redis_db
 
         # 使用配置好的backend类创建ContextManager
         _global_context_manager = ContextManager(
-            backend_class=ConfiguredRedisFileBackend
+            backend_class=ConfiguredRedisMongoBackend
         )
     return _global_context_manager

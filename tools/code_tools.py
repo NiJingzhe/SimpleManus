@@ -16,7 +16,7 @@ from context.conversation_manager import get_current_sketch_pad
     name="cad_code_generator",
     description="Generate high-quality SimpleCADAPI code based on user requirements and context information. Supports SketchPad key input and auto-storage.",
 )
-def cad_code_generator(query: str, ref_code_path: Optional[str] = None) -> str:
+async def cad_code_generator(query: str, ref_code_path: Optional[str] = None) -> str:
     """
     Args:
         query: 用户的原始请求，或者SketchPad的key用于引用已存储的需求;你也可以使用SketchPad的key来引用之前的需求内容，如果这样你需要使用`key:`前缀来标识,例如：`key:1234567890abcdef`
@@ -71,7 +71,7 @@ def cad_code_generator(query: str, ref_code_path: Optional[str] = None) -> str:
             content=f"处理参考代码： {ref_code[:100]}...",
         )
 
-    result = cad_code_generator_impl(
+    result = await cad_code_generator_impl(
         actual_query,
         ref_code if ref_code is not None else None,
     )

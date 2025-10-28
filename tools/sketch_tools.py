@@ -13,9 +13,9 @@ from context.conversation_manager import get_current_sketch_pad
     name="sketch_pad_operations",
     description="Store, retrieve, search and manage data in SketchPad. Supports key-value storage with automatic summarization.",
 )
-def sketch_pad_operations(
+async def sketch_pad_operations(
     operation: str,
-    key: Optional[str] = None ,
+    key: Optional[str] = None,
     value: Optional[str] = None,
     tags: Optional[str] = None,
     search_query: Optional[str] = None,
@@ -37,7 +37,7 @@ def sketch_pad_operations(
     """
 
     sketch_pad = get_current_sketch_pad()
-    
+
     if sketch_pad is None:
         return "Error: No active conversation context. SketchPad operations must be called within a conversation context."
 
@@ -85,7 +85,9 @@ def sketch_pad_operations(
             print_tool_output(
                 title="✅ SketchPad 检索成功",
                 content=(
-                    f"Key: {key}\nValue: {value_str[:200]}..." if len(value_str) > 200 else f"Key: {key}\nValue: {value_str}"
+                    f"Key: {key}\nValue: {value_str[:200]}..."
+                    if len(value_str) > 200
+                    else f"Key: {key}\nValue: {value_str}"
                 ),
             )
             return value_str
@@ -111,7 +113,6 @@ def sketch_pad_operations(
             for list_item in items:
                 summary = list_item.summary or "No summary"
                 result += f"- {list_item.key}: {summary[:50]}...\n"
-
 
             print_tool_output("📋 SketchPad 内容列表", result)
             return result

@@ -1,4 +1,14 @@
-from typing import Dict, List, Generator, Tuple, AsyncGenerator, Callable, override, Any
+from typing import (
+    Callable,
+    Awaitable,
+    Dict,
+    List,
+    Generator,
+    Tuple,
+    AsyncGenerator,
+    override,
+    Any,
+)
 from .BaseAgent import BaseAgent
 from context.conversation_manager import get_current_context
 from tools import (
@@ -13,7 +23,7 @@ from context.schemas import Message
 class SampleAgent(BaseAgent):
 
     @override
-    def get_toolkit(self) -> List[Callable]:
+    def get_toolkit(self) -> List[Callable[..., Awaitable[Any]]]:
         return [
             execute_command,
             read_or_search_file,
@@ -22,7 +32,7 @@ class SampleAgent(BaseAgent):
         ]
 
     @override
-    def chat_impl(
+    async def chat_impl(
         self,
         history: List[Dict[str, str]],
         query: str,
@@ -168,7 +178,7 @@ class SampleAgent(BaseAgent):
         - 使用适当的emoji标识操作类型
         - 在每个状态转换时明确说明下一步行动
         """
-        return   # type: ignore[return-value]
+        return  # type: ignore[return-value]
 
     async def run(self, query: str) -> AsyncGenerator[Any, None]:  # type: ignore[override]
         """Run the agent with the given query.
@@ -191,32 +201,17 @@ class SampleAgent(BaseAgent):
             raise RuntimeError("No active conversation context")
 
         # 将已有消息转换为LLM所需的 history[List[Dict[str, str]]]
-        def _message_content_to_text(content: Any) -> str:
-            if isinstance(content, str) or content is None:
-                return content or ""
-            if isinstance(content, list):
-                text_parts: List[str] = []
-                for item in content:
-                    try:
-                        # pydantic 模型有属性访问，字典走键访问
-                        item_type = getattr(item, "type", None) or (item.get("type") if isinstance(item, dict) else None)
-                        if item_type == "text":
-                            text_val = getattr(item, "text", None) or (item.get("text") if isinstance(item, dict) else None)
-                            if isinstance(text_val, str):
-                                text_parts.append(text_val)
-                    except Exception:
-                        continue
-                return " ".join(text_parts)
-            return str(content)
 
         history_messages = current_context.retrieve_messages()
         history: List[Dict[str, str]] = []
         for m in history_messages:
             if m.role in ("user", "assistant"):
-                history.append({
-                    "role": m.role,
-                    "content": _message_content_to_text(m.content),
-                })
+                history.append(
+                    {
+                        "role": m.role,
+                        "content": self._message_content_to_text(m.content),
+                    }
+                )
 
         # 在开始对话前，将当前用户消息写入上下文存储
         await current_context.store_message(Message(role="user", content=query))

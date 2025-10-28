@@ -22,4 +22,3 @@ __all__ = [
 
 # 注册Agent
 register_agent("sampleagent", SampleAgent)
-register_agent("simplemanus", SampleAgent)  # 为 Web 服务提供默认的 simplemanus 模型

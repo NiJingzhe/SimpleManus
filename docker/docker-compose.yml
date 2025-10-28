@@ -1,13 +1,88 @@
 services:
+  # PostgreSQL 数据库服务
+  simplemanus_postgres:
+    image: postgres:17-alpine
+    container_name: simplemanus_postgres
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-simplemanus}
+      - POSTGRES_USER=${POSTGRES_USER:-simplemanus}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - PGPORT=5432
+    ports:
+      - "5433:5432"  # 只为调试目的暴露外部端口
+    volumes:
+      - simplemanus_postgres_data:/var/lib/postgresql/data
+    networks:
+      - simplemanus_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-simplemanus} -d ${POSTGRES_DB:-simplemanus} -p 5432"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO 对象存储服务
+  simplemanus_minio:
+    image: minio/minio:latest
+    container_name: simplemanus_minio
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-simplemanus}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
+    ports:
+      - "9000:9000"  # API端口，供初始化脚本使用
+      - "9001:9001"  # 控制台端口
+    volumes:
+      - simplemanus_minio_data:/data
+    networks:
+      - simplemanus_network
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # MongoDB 日志存储服务
+  simplemanus_mongodb:
+    image: mongo:7
+    container_name: simplemanus_mongodb
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGODB_USERNAME:-simplemanus}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGODB_PASSWORD}
+      - MONGO_INITDB_DATABASE=${MONGODB_DATABASE:-simplemanus_logs}
+    ports:
+      - "27018:27017"
+    volumes:
+      - simplemanus_mongodb_data:/data/db
+      - simplemanus_mongodb_config:/data/configdb
+    networks:
+      - simplemanus_network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
   # Redis 服务
   simplemanus_redis:
-    image: redis:7-alpine
+    image: redis/redis-stack:latest
     container_name: simplemanus_redis
     restart: unless-stopped
     volumes:
       - simplemanus_redis_data:/data/simplemanus_redis
       - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
     command: redis-server /usr/local/etc/redis/redis.conf
+    ports:
+      - "9737:9736"
     networks:
       - simplemanus_network
     healthcheck:
@@ -31,8 +106,21 @@ services:
     environment:
       - REDIS_HOST=simplemanus_redis
       - REDIS_PORT=9736
-      - REDIS_DB=0
-      - LOG_LEVEL=WARNING
+      - REDIS_DB=${REDIS_DB:-0}
+      - POSTGRES_HOST=simplemanus_postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-simplemanus}
+      - POSTGRES_USER=${POSTGRES_USER:-simplemanus}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - MINIO_ENDPOINT=simplemanus_minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-simplemanus}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - MONGODB_HOST=simplemanus_mongodb
+      - MONGODB_PORT=27017
+      - MONGODB_USERNAME=${MONGODB_USERNAME:-simplemanus}
+      - MONGODB_PASSWORD=${MONGODB_PASSWORD}
+      - MONGODB_DATABASE=${MONGODB_DATABASE:-simplemanus_logs}
+      - LOG_LEVEL=${LOG_LEVEL:-WARNING}
       - WORKING_DIR=/app/workspace
     volumes:
       - app_data:/app/data
@@ -41,6 +129,12 @@ services:
       - ./provider.json:/app/config/provider.json
     depends_on:
       simplemanus_redis:
+        condition: service_healthy
+      simplemanus_postgres:
+        condition: service_healthy
+      simplemanus_minio:
+        condition: service_healthy
+      simplemanus_mongodb:
         condition: service_healthy
     command: ["python", "start_simplemanus_api.py", "--host", "0.0.0.0", "--port", "8000", "--working-dir", "/app/workspace/sandbox"]
     networks:
@@ -56,6 +150,14 @@ services:
       - "host.docker.internal:host-gateway"
 
 volumes:
+  simplemanus_postgres_data:
+    driver: local
+  simplemanus_minio_data:
+    driver: local
+  simplemanus_mongodb_data:
+    driver: local
+  simplemanus_mongodb_config:
+    driver: local
   simplemanus_redis_data:
     driver: local
   app_data:

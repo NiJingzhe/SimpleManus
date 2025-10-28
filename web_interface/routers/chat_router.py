@@ -23,7 +23,7 @@ from ..utils import (
 )
 from ..error_handlers import create_error_response
 from SimpleLLMFunc.logger import app_log, push_warning, log_context, get_current_context_attribute, get_location
-from SimpleLLMFunc.llm_decorator.utils import extract_content_from_stream_response
+from SimpleLLMFunc.base.post_process import extract_content_from_stream_response
 from agent import BaseAgent
 
 router = APIRouter(prefix="/v1/chat", tags=["chat"])

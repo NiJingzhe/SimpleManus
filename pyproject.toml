@@ -5,7 +5,7 @@ description = "A universal agent framework"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "simplellmfunc>=0.2.13",
+    "simplellmfunc==0.3.1",
     "fastapi",
     "uvicorn",
     "pydantic",
@@ -13,4 +13,5 @@ dependencies = [
     "websockets",
     "pydantic-core",
     "redis",
+    "mongoengine>=0.29.1",
 ]

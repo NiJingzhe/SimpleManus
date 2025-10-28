@@ -11,6 +11,8 @@ from context.context_manager import get_context_manager, ContextManager
 from context.sketch_manager import get_sketch_manager, SketchManager
 from context.sketch_pad import SketchPadBackend
 from context.context import ContextBackend
+from context.mongo_schemas import ConversationDocument
+from context.mongo_connection import ensure_mongo_connection
 from config.config import get_config 
 
 
@@ -106,7 +108,12 @@ class ConversationManager:
         self._active_conversations: Dict[str, Conversation] = {}
         self._lock = threading.RLock()
         
-        # 创建conversations目录
+        # 确保MongoDB连接
+        if not ensure_mongo_connection():
+            push_error("无法连接到MongoDB")
+            raise ConnectionError("MongoDB connection failed")
+        
+        # 创建conversations目录（保持兼容性）
         self.conversations_dir = os.path.join(os.path.dirname(self.config.CONTEXT_DIR), "conversations")
         os.makedirs(self.conversations_dir, exist_ok=True)
         
@@ -164,23 +171,39 @@ class ConversationManager:
             # 加入活动 Conversation 列表
             self._active_conversations[conversation_id] = conversation
             
-            # 立即持久化 context 和 sketch_pad 到文件系统
+            # 立即持久化到MongoDB和文件系统
             try:
                 import asyncio
                 # 创建事件循环来运行异步任务
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
+                    # 持久化context和sketch_pad
                     loop.run_until_complete(context.persist())
-                    # 同步调用sketch_pad的persist方法
                     sketch_pad.persist()
+                    
+                    # 创建MongoDB中的Conversation文档
+                    conversation_doc = ConversationDocument(
+                        conversation_id=conversation_id,
+                        context_id=conversation_id,
+                        sketch_pad_id=conversation_id,
+                        created_at=now,
+                        last_accessed=now,
+                        is_active=True,
+                        metadata={
+                            "llm_interface": str(llm_interface) if llm_interface else None,
+                            "max_history_length": max_history_length
+                        }
+                    )
+                    conversation_doc.save()
+                    
                 finally:
                     loop.close()
-                app_log(f"✅ Conversation {conversation_id} 已成功持久化到文件系统")
+                app_log(f"✅ Conversation {conversation_id} 已成功持久化到MongoDB和文件系统")
             except Exception as e:
                 push_warning(f"Failed to persist conversation {conversation_id}: {e}")
             
-            # 创建持久化标记文件
+            # 创建持久化标记文件（保持兼容性）
             self._create_conversation_marker(conversation_id)
             
             return conversation
@@ -202,23 +225,64 @@ class ConversationManager:
                 conversation.update_access_time()
                 return conversation
             
-            # 尝试从文件系统重建
-            context = self.context_manager.get_context(conversation_id)
-            sketch_pad = self.sketch_manager.get_sketch_pad(conversation_id)
-            
-            if context is not None and sketch_pad is not None:
-                # 重建 Conversation 对象
-                now = datetime.now()
-                conversation = Conversation(
-                    uuid=conversation_id,
-                    context=context,
-                    sketch_pad=sketch_pad,
-                    created_at=now,  # 使用当前时间作为重建时间
-                    last_accessed=now
-                )
+            # 尝试从MongoDB和文件系统重建
+            try:
+                # 先检查MongoDB中是否存在该conversation
+                conversation_doc = None
+                try:
+                    conversation_doc = ConversationDocument.objects(conversation_id=conversation_id).first()
+                except Exception as query_error:
+                    error_msg = str(query_error)
+                    # 忽略索引相关错误
+                    if ("background" in error_msg and "_id" in error_msg) or \
+                       ("InvalidIndexSpecificationOption" in error_msg):
+                        push_warning(f"忽略MongoDB查询时的索引错误: {error_msg}")
+                        conversation_doc = None
+                    else:
+                        raise query_error
                 
-                self._active_conversations[conversation_id] = conversation
-                return conversation
+                context = self.context_manager.get_context(conversation_id)
+                sketch_pad = self.sketch_manager.get_sketch_pad(conversation_id)
+                
+                if context is not None and sketch_pad is not None:
+                    # 重建 Conversation 对象
+                    if conversation_doc:
+                        # 使用MongoDB中的时间信息
+                        created_at = conversation_doc.created_at
+                        last_accessed = conversation_doc.last_accessed
+                        
+                        # 更新最后访问时间
+                        conversation_doc.last_accessed = datetime.now()
+                        conversation_doc.save()
+                    else:
+                        # 如果MongoDB中没有记录，使用当前时间
+                        created_at = datetime.now()
+                        last_accessed = datetime.now()
+                        
+                        # 创建新的MongoDB记录
+                        conversation_doc = ConversationDocument(
+                            conversation_id=conversation_id,
+                            context_id=conversation_id,
+                            sketch_pad_id=conversation_id,
+                            created_at=created_at,
+                            last_accessed=last_accessed,
+                            is_active=True
+                        )
+                        conversation_doc.save()
+                    
+                    conversation = Conversation(
+                        uuid=conversation_id,
+                        context=context,
+                        sketch_pad=sketch_pad,
+                        created_at=created_at,
+                        last_accessed=last_accessed
+                    )
+                    
+                    self._active_conversations[conversation_id] = conversation
+                    return conversation
+                    
+            except Exception as e:
+                push_warning(f"从MongoDB重建conversation失败: {e}")
             
             return None
     
@@ -244,7 +308,37 @@ class ConversationManager:
             context_deleted = self.context_manager.delete_context(conversation_id)
             sketch_deleted = self.sketch_manager.delete_sketch_pad(conversation_id)
             
-            # 删除标记文件
+            # 删除MongoDB中的Conversation文档
+            try:
+                conversation_doc = None
+                try:
+                    conversation_doc = ConversationDocument.objects(conversation_id=conversation_id).first()
+                except Exception as query_error:
+                    error_msg = str(query_error)
+                    # 忽略索引相关错误
+                    if ("background" in error_msg and "_id" in error_msg) or \
+                       ("InvalidIndexSpecificationOption" in error_msg):
+                        push_warning(f"忽略MongoDB查询时的索引错误: {error_msg}")
+                        conversation_doc = None
+                    else:
+                        raise query_error
+                        
+                if conversation_doc:
+                    try:
+                        conversation_doc.delete()
+                        success = True
+                    except Exception as delete_error:
+                        error_msg = str(delete_error)
+                        # 忽略索引相关错误
+                        if ("background" in error_msg and "_id" in error_msg) or \
+                           ("InvalidIndexSpecificationOption" in error_msg):
+                            push_warning(f"忽略MongoDB删除时的索引错误: {error_msg}")
+                        else:
+                            raise delete_error
+            except Exception as e:
+                push_warning(f"删除MongoDB中的conversation记录失败: {e}")
+            
+            # 删除标记文件（保持兼容性）
             marker_file = os.path.join(self.conversations_dir, f"conv_{conversation_id}.marker")
             if os.path.exists(marker_file):
                 try:
@@ -263,19 +357,34 @@ class ConversationManager:
         """
         conversations = []
         
-        # 扫描标记文件
+        # 首先从MongoDB获取所有conversation记录
         try:
-            for filename in os.listdir(self.conversations_dir):
-                if filename.startswith("conv_") and filename.endswith(".marker"):
-                    conversation_id = filename[5:-7]  # 移除 "conv_" 前缀和 ".marker" 后缀
-                    
-                    conversation_info = {
-                        "conversation_id": conversation_id,
-                        "marker_file": os.path.join(self.conversations_dir, filename),
-                        "is_active": conversation_id in self._active_conversations
-                    }
-                    
-                    # 获取 Context 和 SketchPad 信息
+            conversation_docs = []
+            try:
+                conversation_docs = ConversationDocument.objects().all()
+            except Exception as query_error:
+                error_msg = str(query_error)
+                # 忽略索引相关错误
+                if ("background" in error_msg and "_id" in error_msg) or \
+                   ("InvalidIndexSpecificationOption" in error_msg):
+                    push_warning(f"从MongoDB列出conversations失败: {error_msg}")
+                    conversation_docs = []  # 使用空列表，回退到文件系统扫描
+                else:
+                    raise query_error
+            for conversation_doc in conversation_docs:
+                conversation_id = conversation_doc.conversation_id
+                
+                conversation_info = {
+                    "conversation_id": conversation_id,
+                    "is_active": conversation_id in self._active_conversations,
+                    "created_at": conversation_doc.created_at.isoformat() if conversation_doc.created_at else None,
+                    "last_accessed": conversation_doc.last_accessed.isoformat() if conversation_doc.last_accessed else None,
+                    "updated_at": conversation_doc.updated_at.isoformat() if conversation_doc.updated_at else None,
+                    "metadata": conversation_doc.metadata or {}
+                }
+                
+                # 获取 Context 和 SketchPad 信息
+                try:
                     context = self.context_manager.get_context(conversation_id)
                     sketch_pad = self.sketch_manager.get_sketch_pad(conversation_id)
                     
@@ -295,11 +404,52 @@ class ConversationManager:
                             "sketch_max_items": stats.max_items,
                             "sketch_memory_usage": stats.memory_usage_percent
                         })
-                    
-                    conversations.append(conversation_info)
+                except Exception as e:
+                    push_warning(f"获取conversation {conversation_id} 详细信息失败: {e}")
+                
+                conversations.append(conversation_info)
         
         except Exception as e:
-            push_warning(f"Failed to list conversations: {e}")
+            push_warning(f"从MongoDB列出conversations失败: {e}")
+            
+            # 如果MongoDB查询失败，回退到文件系统扫描
+            try:
+                for filename in os.listdir(self.conversations_dir):
+                    if filename.startswith("conv_") and filename.endswith(".marker"):
+                        conversation_id = filename[5:-7]  # 移除 "conv_" 前缀和 ".marker" 后缀
+                        
+                        conversation_info = {
+                            "conversation_id": conversation_id,
+                            "marker_file": os.path.join(self.conversations_dir, filename),
+                            "is_active": conversation_id in self._active_conversations,
+                            "source": "file_system"  # 标记数据来源
+                        }
+                        
+                        # 获取 Context 和 SketchPad 信息
+                        context = self.context_manager.get_context(conversation_id)
+                        sketch_pad = self.sketch_manager.get_sketch_pad(conversation_id)
+                        
+                        if context:
+                            metadata = context.get_metadata()
+                            conversation_info.update({
+                                "context_start_time": metadata.get("start_time"),
+                                "context_last_activity": metadata.get("last_activity"),
+                                "context_total_messages": context.get_message_count(),
+                                "context_has_summary": bool(context.get_summary())
+                            })
+                        
+                        if sketch_pad:
+                            stats = sketch_pad.get_statistics()
+                            conversation_info.update({
+                                "sketch_total_items": stats.total_items,
+                                "sketch_max_items": stats.max_items,
+                                "sketch_memory_usage": stats.memory_usage_percent
+                            })
+                        
+                        conversations.append(conversation_info)
+            
+            except Exception as file_e:
+                push_warning(f"文件系统扫描也失败: {file_e}")
         
         return conversations
     

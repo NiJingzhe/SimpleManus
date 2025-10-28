@@ -150,6 +150,7 @@ class RedisFileSketchPadBackend(SketchPadBackend):
         redis_host: str = "localhost",
         redis_port: int = 6379,
         redis_db: int = 0,
+        redis_password: Optional[str] = None,
         file_path: Optional[str] = None,
     ):
         """
@@ -168,7 +169,8 @@ class RedisFileSketchPadBackend(SketchPadBackend):
         self.redis_host = redis_host
         self.redis_port = redis_port
         self.redis_db = redis_db
-        self.redis: Redis = Redis(host=self.redis_host, port=self.redis_port, db=self.redis_db)
+        self.redis_password = redis_password
+        self.redis: Redis = Redis(host=self.redis_host, port=self.redis_port, db=self.redis_db, password=self.redis_password)
 
         self._lock = threading.RLock()
         self._restore_from_storage()

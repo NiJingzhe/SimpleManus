@@ -8,11 +8,13 @@ BaseAgent 提供了以下功能：
 - SketchPad 管理
 - 工具集管理
 """
+
 from typing import (
+    Callable,
+    Awaitable,
     Dict,
     List,
     Optional,
-    Callable,
     Generator,
     Sequence,
     Tuple,
@@ -20,7 +22,7 @@ from typing import (
     Any,
 )
 from abc import ABC, abstractmethod
-from SimpleLLMFunc import llm_chat, OpenAICompatible # type: ignore
+from SimpleLLMFunc import llm_chat, OpenAICompatible  # type: ignore
 import threading
 from context.conversation_manager import get_current_context, get_current_sketch_pad
 from context.schemas import Message
@@ -129,7 +131,7 @@ class BaseAgent(ABC):
         )(self.chat_impl)
 
     @abstractmethod
-    def get_toolkit(self) -> Sequence[Callable]:
+    def get_toolkit(self) -> Sequence[Callable[..., Awaitable[Any]]]:
         """
         获取Agent专用的工具集（抽象方法）
 
@@ -141,7 +143,7 @@ class BaseAgent(ABC):
         pass
 
     @abstractmethod
-    def chat_impl(
+    async def chat_impl(
         self,
         history: List[Dict[str, str]],
         query: str,
@@ -182,7 +184,7 @@ class BaseAgent(ABC):
             sketch_pad = get_current_sketch_pad()
             if sketch_pad is None:
                 return "SketchPad不可用：没有活动的conversation上下文"
-            
+
             # 获取所有项目的详细信息（包含值）
             all_items = sketch_pad.list_items(include_value=True)
 
@@ -359,7 +361,7 @@ class BaseAgent(ABC):
             conversation_count = 0
             sketch_pad_stats = {}
             conversation_summary = None
-            
+
         return {
             "agent_name": self.name,
             "model_name": self.model_name,
@@ -384,6 +386,40 @@ class BaseAgent(ABC):
         except Exception:
             return ""
 
+    def _message_content_to_text(self, content: Any) -> str:
+        """
+        将消息内容转换为文本格式的通用工具方法
+
+        支持处理字符串、列表和复杂消息内容格式，
+        可被子类调用来统一处理消息内容的文本转换
+
+        Args:
+            content: 消息内容，可以是字符串、列表或其他格式
+
+        Returns:
+            转换后的文本字符串
+        """
+        if isinstance(content, str) or content is None:
+            return content or ""
+        if isinstance(content, list):
+            text_parts: List[str] = []
+            for item in content:
+                try:
+                    # pydantic 模型有属性访问，字典走键访问
+                    item_type = getattr(item, "type", None) or (
+                        item.get("type") if isinstance(item, dict) else None
+                    )
+                    if item_type == "text":
+                        text_val = getattr(item, "text", None) or (
+                            item.get("text") if isinstance(item, dict) else None
+                        )
+                        if isinstance(text_val, str):
+                            text_parts.append(text_val)
+                except Exception:
+                    continue
+            return " ".join(text_parts)
+        return str(content)
+
     def _msg_to_dict(self, msg: Any) -> Dict[str, Any]:
         """将后端返回的消息统一转为字典结构，兼容对象与字典两种形态。"""
         if isinstance(msg, dict):
@@ -396,7 +432,7 @@ class BaseAgent(ABC):
         }
 
     async def _stream_and_persist(
-        self, response_packages: Generator[Tuple[Any, List[Any]], None, None]
+        self, response_packages: AsyncGenerator[Tuple[Any, List[Any]], None]
     ) -> AsyncGenerator[Any, None]:
         """
         统一的流式处理与历史持久化逻辑：
@@ -410,10 +446,14 @@ class BaseAgent(ABC):
         assistant_buffer: str = ""
         baseline_len: Optional[int] = None
 
-        for raw_response, current_messages in response_packages:
+        async for raw_response, current_messages in response_packages:
             if baseline_len is None:
                 try:
-                    baseline_len = len(current_messages) if isinstance(current_messages, list) else 0
+                    baseline_len = (
+                        len(current_messages)
+                        if isinstance(current_messages, list)
+                        else 0
+                    )
                 except Exception:
                     baseline_len = 0
 
@@ -441,17 +481,27 @@ class BaseAgent(ABC):
                             if (role == "assistant" and tool_calls) or role == "tool":
                                 if assistant_buffer.strip():
                                     await context.store_message(
-                                        Message(role="assistant", content=assistant_buffer)
+                                        Message(
+                                            role="assistant", content=assistant_buffer
+                                        )
                                     )
                                     assistant_buffer = ""
 
                             if role == "assistant" and tool_calls:
                                 await context.store_message(
-                                    Message(role="assistant", content=None, tool_calls=tool_calls)
+                                    Message(
+                                        role="assistant",
+                                        content=None,
+                                        tool_calls=tool_calls,
+                                    )
                                 )
                             elif role == "tool":
                                 await context.store_message(
-                                    Message(role="tool", content=content, tool_call_id=tool_call_id)
+                                    Message(
+                                        role="tool",
+                                        content=content,
+                                        tool_call_id=tool_call_id,
+                                    )
                                 )
                         baseline_len = curr_len
             except Exception:
@@ -459,4 +509,6 @@ class BaseAgent(ABC):
 
         # 流结束，写入残留的助手文本
         if assistant_buffer.strip():
-            await context.store_message(Message(role="assistant", content=assistant_buffer))
+            await context.store_message(
+                Message(role="assistant", content=assistant_buffer)
+            )

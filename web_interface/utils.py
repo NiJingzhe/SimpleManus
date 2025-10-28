@@ -22,7 +22,7 @@ from tools import (
     sketch_pad_operations,
 )
 from SimpleLLMFunc.logger import app_log, push_warning, push_error, get_current_context_attribute
-from SimpleLLMFunc.llm_decorator.utils import extract_content_from_stream_response
+from SimpleLLMFunc.base.post_process import extract_content_from_stream_response
 
 
 def get_agent_for_model(model_name: str, agent_registry) -> Any:
